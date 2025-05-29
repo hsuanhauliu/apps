@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sketchpad</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .tool-button.active-pencil {
+            @apply bg-blue-700 ring-2 ring-blue-500;
+        }
+        .tool-button.active-eraser {
+            @apply bg-red-700 ring-2 ring-red-500;
+        }
+        canvas {
+            touch-action: none;
+            display: block;
+            max-width: 100%;
+        }
+        .canvas-container {
+            margin-left: auto;
+            margin-right: auto;
+            background-color: #fff; /* Fallback background for the container */
+            position: relative; /* For positioning the upload overlay */
+        }
+        /* Styles for disabled state if Tailwind's default isn't enough */
+        .tool-button:disabled, input[type="color"]:disabled, input[type="range"]:disabled,
+        #clearCanvas:disabled, #downloadFullImage:disabled, #downloadDrawingOnly:disabled { /* Removed #inpaintBtn:disabled */
+            @apply opacity-50 cursor-not-allowed;
+        }
+        #uploadOverlay label:hover {
+            @apply bg-green-700;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-start min-h-screen bg-gray-100 p-4">
+    <div class="container bg-white rounded-xl shadow-lg p-6 w-full max-w-4xl">
+        <div class="toolbar flex flex-wrap justify-center items-center gap-3 sm:gap-4 mb-6 p-4 bg-gray-50 rounded-lg shadow-inner">
+            <div class="flex items-center gap-2">
+                <label for="colorPicker" class="text-sm sm:text-base text-gray-700 font-medium">Color:</label>
+                <input type="color" id="colorPicker" value="#000000"
+                       class="w-8 h-8 sm:w-10 sm:h-10 p-0 border-none rounded-md cursor-pointer overflow-hidden
+                              focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div class="flex items-center gap-2">
+                <label for="lineThickness" class="text-sm sm:text-base text-gray-700 font-medium">Thickness:</label>
+                <input type="range" id="lineThickness" min="1" max="50" value="5"
+                       class="w-24 sm:w-32 h-2 rounded-lg appearance-none cursor-pointer bg-gray-200
+                              [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-blue-600
+                              [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-blue-600">
+                <span id="thicknessValue" class="text-sm sm:text-base text-gray-700 font-semibold w-6 text-center">5</span>
+            </div>
+            <div class="flex flex-wrap justify-center gap-2 sm:gap-3">
+                <button id="pencilTool" class="tool-button px-3 py-2 sm:px-5 sm:py-2 text-xs sm:text-sm bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200">
+                    Pencil
+                </button>
+                <button id="eraserTool" class="tool-button px-3 py-2 sm:px-5 sm:py-2 text-xs sm:text-sm bg-gray-400 hover:bg-gray-500 text-white font-semibold rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 transition-all duration-200">
+                    Eraser
+                </button>
+                <button id="clearCanvas" class="px-3 py-2 sm:px-5 sm:py-2 text-xs sm:text-sm bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 transition-all duration-200">
+                    Reset
+                </button>
+                <button id="downloadFullImage" class="px-3 py-2 sm:px-5 sm:py-2 text-xs sm:text-sm bg-purple-500 text-white font-semibold rounded-lg shadow-md hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-2 transition-all duration-200">
+                    Download Image
+                </button>
+                <button id="downloadDrawingOnly" class="px-3 py-2 sm:px-5 sm:py-2 text-xs sm:text-sm bg-orange-500 text-white font-semibold rounded-lg shadow-md hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 transition-all duration-200">
+                    Download Drawing
+                </button>
+            </div>
+        </div>
+        <div class="canvas-container border border-gray-300 rounded-lg shadow-inner overflow-hidden" style="max-width: 800px;">
+             <canvas id="drawingCanvas" class="cursor-crosshair"></canvas>
+             <div id="uploadOverlay" class="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 backdrop-blur-sm rounded-lg z-10">
+                 <label for="imageUpload" class="cursor-pointer p-6 bg-green-600 text-white font-bold rounded-lg shadow-xl hover:bg-green-700 text-xl transition-all duration-200">
+                     Upload Image
+                 </label>
+                 <input type="file" id="imageUpload" accept="image/*" class="hidden">
+             </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('drawingCanvas');
+            const ctx = canvas.getContext('2d');
+            const canvasContainer = document.querySelector('.canvas-container');
+            const uploadOverlay = document.getElementById('uploadOverlay');
+            const imageUploadInput = document.getElementById('imageUpload');
+
+            const drawingLayerCanvas = document.createElement('canvas');
+            const drawingLayerCtx = drawingLayerCanvas.getContext('2d');
+
+            const colorPicker = document.getElementById('colorPicker');
+            const lineThickness = document.getElementById('lineThickness');
+            const thicknessValueSpan = document.getElementById('thicknessValue');
+            const pencilTool = document.getElementById('pencilTool');
+            const eraserTool = document.getElementById('eraserTool');
+            const clearCanvasBtn = document.getElementById('clearCanvas');
+            // const inpaintBtn = document.getElementById('inpaintBtn'); // Removed Inpaint button reference
+            const downloadFullImageBtn = document.getElementById('downloadFullImage');
+            const downloadDrawingOnlyBtn = document.getElementById('downloadDrawingOnly');
+
+            let backgroundImage = null;
+            let paths = [];
+            let currentDrawingPath = { points: [], color: '', thickness: 0 };
+            let isDrawing = false;
+            let currentSelectedTool = 'pencil';
+            let toolsActuallyEnabled = false;
+            let prevEraserPosCanvas = null;
+            
+            let lastKnownMouseCanvasCoords = { x: 0, y: 0 };
+            let animationFrameRequestId = null;
+            let isMouseOverCanvas = false;
+
+
+            const DEFAULT_CANVAS_WIDTH = 800;
+            const DEFAULT_CANVAS_HEIGHT = 600;
+
+            function distSq(p1, p2) { return Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2); }
+            function distToSegmentSquared(p, v, w) {
+                const l2 = distSq(v, w); if (l2 === 0) return distSq(p, v);
+                let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+                t = Math.max(0, Math.min(1, t));
+                const cP = { x: v.x + t * (w.x - v.x), y: v.y + t * (w.y - v.y) }; return distSq(p, cP);
+            }
+            function getCanvasCoordinatesFromEvent(e) {
+                const rect = canvas.getBoundingClientRect();
+                const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+                const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+                return { x: clientX - rect.left, y: clientY - rect.top };
+            }
+            function getNormalizedCoordinates(e) {
+                const canvasCoords = getCanvasCoordinatesFromEvent(e);
+                if (canvas.width === 0 || canvas.height === 0) return { x: 0, y: 0 };
+                return { x: canvasCoords.x / canvas.width, y: canvasCoords.y / canvas.height };
+            }
+
+            function drawInterpolatedThickLine(targetCtx, normPoints, color, thickness, targetCanvasWidth, targetCanvasHeight) {
+                if (!normPoints || normPoints.length === 0 || thickness <= 0) return;
+                targetCtx.fillStyle = color;
+                const radius = Math.max(0.5, thickness / 2);
+                const firstCanvasPoint = { x: normPoints[0].x * targetCanvasWidth, y: normPoints[0].y * targetCanvasHeight };
+                targetCtx.beginPath();
+                targetCtx.arc(firstCanvasPoint.x, firstCanvasPoint.y, radius, 0, Math.PI * 2);
+                targetCtx.fill();
+                if (normPoints.length === 1) return;
+                for (let i = 1; i < normPoints.length; i++) {
+                    const p1Norm = normPoints[i-1]; const p2Norm = normPoints[i];
+                    const p1Canvas = { x: p1Norm.x * targetCanvasWidth, y: p1Norm.y * targetCanvasHeight };
+                    const p2Canvas = { x: p2Norm.x * targetCanvasWidth, y: p2Norm.y * targetCanvasHeight };
+                    const dx = p2Canvas.x - p1Canvas.x; const dy = p2Canvas.y - p1Canvas.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    if (distance < 1) { targetCtx.beginPath(); targetCtx.arc(p2Canvas.x, p2Canvas.y, radius, 0, Math.PI * 2); targetCtx.fill(); continue; }
+                    const step = 1;
+                    for (let j = step; j < distance; j += step) {
+                        const t = j / distance;
+                        const iX = p1Canvas.x + t * dx; const iY = p1Canvas.y + t * dy;
+                        targetCtx.beginPath(); targetCtx.arc(iX, iY, radius, 0, Math.PI * 2); targetCtx.fill();
+                    }
+                    targetCtx.beginPath(); targetCtx.arc(p2Canvas.x, p2Canvas.y, radius, 0, Math.PI * 2); targetCtx.fill();
+                }
+            }
+
+            const renderDrawingLayerFromPaths = () => {
+                drawingLayerCtx.clearRect(0, 0, drawingLayerCanvas.width, drawingLayerCanvas.height);
+                drawingLayerCtx.globalCompositeOperation = 'source-over';
+                paths.forEach(path => {
+                    drawInterpolatedThickLine(drawingLayerCtx, path.points, path.color, path.thickness, drawingLayerCanvas.width, drawingLayerCanvas.height);
+                });
+            };
+            
+            const refreshVisibleCanvas = () => {
+                if (canvas.width === 0 || canvas.height === 0) return;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                if (backgroundImage && backgroundImage.complete && backgroundImage.naturalWidth > 0) {
+                    ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+                }
+                ctx.drawImage(drawingLayerCanvas, 0, 0);
+            };
+
+            const drawToolIndicator = (x, y, currentThickness) => {
+                ctx.save();
+                ctx.fillStyle = 'rgba(255, 255, 0, 0.5)';
+                ctx.beginPath();
+                ctx.arc(x, y, currentThickness / 2 + 2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            };
+
+            function drawCycle() {
+                animationFrameRequestId = null;
+                refreshVisibleCanvas();
+                if (toolsActuallyEnabled && isMouseOverCanvas) { 
+                    const currentToolThickness = parseFloat(lineThickness.value);
+                    drawToolIndicator(lastKnownMouseCanvasCoords.x, lastKnownMouseCanvasCoords.y, currentToolThickness);
+                }
+            }
+
+            function requestDrawCycle() {
+                if (!animationFrameRequestId) {
+                    animationFrameRequestId = requestAnimationFrame(drawCycle);
+                }
+            }
+            
+            const resizeAndRedraw = () => {
+                const maxContentWidth = 800; 
+                const maxContentHeight = window.innerHeight * 0.7;
+                let finalCanvasWidth, finalCanvasHeight;
+
+                if (backgroundImage && backgroundImage.naturalWidth > 0 && backgroundImage.naturalHeight > 0) {
+                    const imgNaturalW = backgroundImage.naturalWidth;
+                    const imgNaturalH = backgroundImage.naturalHeight;
+                    const ratioW = maxContentWidth / imgNaturalW;
+                    const ratioH = maxContentHeight / imgNaturalH;
+                    const scale = Math.min(ratioW, ratioH, 1.0); 
+                    finalCanvasWidth = imgNaturalW * scale;
+                    finalCanvasHeight = imgNaturalH * scale;
+                } else {
+                    const defaultAspectRatio = DEFAULT_CANVAS_WIDTH / DEFAULT_CANVAS_HEIGHT;
+                    finalCanvasWidth = maxContentWidth;
+                    finalCanvasHeight = finalCanvasWidth / defaultAspectRatio;
+                    if (finalCanvasHeight > maxContentHeight) {
+                        finalCanvasHeight = maxContentHeight;
+                        finalCanvasWidth = finalCanvasHeight * defaultAspectRatio;
+                    }
+                    if (finalCanvasWidth > maxContentWidth) {
+                         finalCanvasWidth = maxContentWidth;
+                         finalCanvasHeight = finalCanvasWidth / defaultAspectRatio;
+                    }
+                }
+                finalCanvasWidth = Math.max(1, Math.floor(finalCanvasWidth));
+                finalCanvasHeight = Math.max(1, Math.floor(finalCanvasHeight));
+                canvas.width = drawingLayerCanvas.width = finalCanvasWidth;
+                canvas.height = drawingLayerCanvas.height = finalCanvasHeight;
+                canvasContainer.style.width = `${finalCanvasWidth}px`;
+                canvasContainer.style.height = `${finalCanvasHeight}px`;
+                renderDrawingLayerFromPaths();
+                requestDrawCycle();
+            };
+
+            function modifyPathsForErasure(eraserStartCanvasPos, eraserEndCanvasPos) {
+                const eraserRadius = parseFloat(lineThickness.value) / 2;
+                const newPathsList = [];
+                for (const path of paths) {
+                    if (!path || path.points.length === 0) continue;
+                    let currentSegmentPoints = [];
+                    for (let i = 0; i < path.points.length; i++) {
+                        const normPoint = path.points[i];
+                        const pathCanvasPoint = { x: normPoint.x * drawingLayerCanvas.width, y: normPoint.y * drawingLayerCanvas.height };
+                        let pointErased = false;
+                        const eraserHitRadiusSq = Math.pow(eraserRadius, 2);
+                        if (eraserStartCanvasPos.x === eraserEndCanvasPos.x && eraserStartCanvasPos.y === eraserEndCanvasPos.y) {
+                            pointErased = distSq(pathCanvasPoint, eraserStartCanvasPos) < eraserHitRadiusSq;
+                        } else { 
+                            pointErased = distToSegmentSquared(pathCanvasPoint, eraserStartCanvasPos, eraserEndCanvasPos) < eraserHitRadiusSq;
+                        }
+                        if (pointErased) {
+                            if (currentSegmentPoints.length > 0) {
+                                newPathsList.push({ ...path, points: [...currentSegmentPoints] });
+                                currentSegmentPoints = [];
+                            }
+                        } else {
+                            currentSegmentPoints.push(normPoint);
+                        }
+                    }
+                    if (currentSegmentPoints.length > 0) {
+                        newPathsList.push({ ...path, points: [...currentSegmentPoints] });
+                    }
+                }
+                paths = newPathsList;
+            }
+
+            const startDrawing = (e) => {
+                if (!toolsActuallyEnabled || e.button === 2 || canvas.width === 0 || canvas.height === 0) return;
+                isDrawing = true;
+                const canvasCoords = getCanvasCoordinatesFromEvent(e);
+                lastKnownMouseCanvasCoords = canvasCoords;
+                
+                if (currentSelectedTool === 'pencil') {
+                    const normCoords = getNormalizedCoordinates(e);
+                    currentDrawingPath = { points: [normCoords], color: colorPicker.value, thickness: parseFloat(lineThickness.value) };
+                    renderDrawingLayerFromPaths();
+                    drawingLayerCtx.globalCompositeOperation = 'source-over';
+                    drawInterpolatedThickLine(drawingLayerCtx, currentDrawingPath.points, currentDrawingPath.color, currentDrawingPath.thickness, drawingLayerCanvas.width, drawingLayerCanvas.height);
+                } else if (currentSelectedTool === 'eraser') {
+                    prevEraserPosCanvas = canvasCoords;
+                    modifyPathsForErasure(canvasCoords, canvasCoords);
+                    renderDrawingLayerFromPaths();
+                    drawingLayerCtx.globalCompositeOperation = 'destination-out';
+                    drawingLayerCtx.fillStyle = 'rgba(0,0,0,1)'; 
+                    drawingLayerCtx.beginPath();
+                    drawingLayerCtx.arc(canvasCoords.x, canvasCoords.y, Math.max(0.5, parseFloat(lineThickness.value) / 2), 0, Math.PI * 2);
+                    drawingLayerCtx.fill();
+                    drawingLayerCtx.globalCompositeOperation = 'source-over';
+                }
+                requestDrawCycle();
+            };
+
+            const draw = (e) => {
+                const canvasCoords = getCanvasCoordinatesFromEvent(e);
+                lastKnownMouseCanvasCoords = canvasCoords;
+
+                if (!isDrawing || !toolsActuallyEnabled || canvas.width === 0 || canvas.height === 0) {
+                    if(toolsActuallyEnabled && isMouseOverCanvas) requestDrawCycle();
+                    return;
+                }
+                e.preventDefault();
+
+                if (currentSelectedTool === 'pencil') {
+                    const normCoords = getNormalizedCoordinates(e);
+                    currentDrawingPath.points.push(normCoords);
+                    renderDrawingLayerFromPaths();
+                    if (currentDrawingPath.points.length > 0) {
+                        drawingLayerCtx.globalCompositeOperation = 'source-over';
+                        drawInterpolatedThickLine(drawingLayerCtx, currentDrawingPath.points, currentDrawingPath.color, currentDrawingPath.thickness, drawingLayerCanvas.width, drawingLayerCanvas.height);
+                    }
+                } else if (currentSelectedTool === 'eraser') {
+                    if (prevEraserPosCanvas) {
+                        modifyPathsForErasure(prevEraserPosCanvas, canvasCoords);
+                        renderDrawingLayerFromPaths();
+                        drawingLayerCtx.globalCompositeOperation = 'destination-out';
+                        drawingLayerCtx.strokeStyle = 'rgba(0,0,0,1)';
+                        drawingLayerCtx.lineWidth = parseFloat(lineThickness.value);
+                        drawingLayerCtx.lineCap = 'round'; 
+                        drawingLayerCtx.lineJoin = 'round';
+                        drawingLayerCtx.beginPath();
+                        drawingLayerCtx.moveTo(prevEraserPosCanvas.x, prevEraserPosCanvas.y);
+                        drawingLayerCtx.lineTo(canvasCoords.x, canvasCoords.y);
+                        drawingLayerCtx.stroke();
+                        drawingLayerCtx.globalCompositeOperation = 'source-over';
+                    }
+                    prevEraserPosCanvas = canvasCoords;
+                }
+                requestDrawCycle();
+            };
+
+            const stopDrawing = () => {
+                if (!isDrawing || !toolsActuallyEnabled) return;
+                isDrawing = false; 
+                if (currentSelectedTool === 'pencil') {
+                    if (currentDrawingPath.points.length > 0) {
+                        paths.push({...currentDrawingPath});
+                    }
+                    currentDrawingPath = { points: [], color: '', thickness: 0 };
+                } else if (currentSelectedTool === 'eraser') {
+                    prevEraserPosCanvas = null;
+                }
+                renderDrawingLayerFromPaths(); 
+                requestDrawCycle(); 
+            };
+
+            canvas.addEventListener('mouseenter', () => {
+                isMouseOverCanvas = true;
+                if (toolsActuallyEnabled) { requestDrawCycle(); }
+            });
+            canvas.addEventListener('mouseleave', () => {
+                isMouseOverCanvas = false;
+                if (isDrawing) { stopDrawing(); }
+                requestDrawCycle();
+            });
+
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+
+            canvas.addEventListener('touchstart', (e)=>{ e.preventDefault(); isMouseOverCanvas = true; startDrawing(e); },{passive:false});
+            canvas.addEventListener('touchmove', (e)=>{ e.preventDefault(); draw(e); },{passive:false});
+            canvas.addEventListener('touchend', (e) => { isMouseOverCanvas = false; stopDrawing(e); });
+            canvas.addEventListener('touchcancel', (e) => { isMouseOverCanvas = false; stopDrawing(e); });
+
+
+            function toggleUploadButtonVisibility(show) {
+                uploadOverlay.style.display = show ? 'flex' : 'none';
+            }
+
+            function updateToolsEnabledState(enable) {
+                toolsActuallyEnabled = enable;
+                const drawingControls = [pencilTool, eraserTool, colorPicker, lineThickness];
+                drawingControls.forEach(control => {
+                    control.disabled = !enable;
+                    control.classList.toggle('opacity-50', !enable);
+                    control.classList.toggle('cursor-not-allowed', !enable);
+                });
+                // ActionButtons no longer includes inpaintBtn
+                const actionButtons = [clearCanvasBtn, downloadFullImageBtn, downloadDrawingOnlyBtn];
+                actionButtons.forEach(button => {
+                    button.disabled = !enable;
+                    button.classList.toggle('opacity-50', !enable);
+                    button.classList.toggle('cursor-not-allowed', !enable);
+                });
+                applyActiveToolVisuals();
+                if (enable && isMouseOverCanvas) requestDrawCycle();
+                else if (!enable) requestDrawCycle();
+            }
+
+            function applyActiveToolVisuals() {
+                pencilTool.classList.remove('active-pencil', 'bg-blue-700', 'ring-blue-500');
+                eraserTool.classList.remove('active-eraser', 'bg-red-700', 'ring-red-500');
+                pencilTool.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                eraserTool.classList.add('bg-gray-400', 'hover:bg-gray-500');
+
+                if (!toolsActuallyEnabled) {
+                    canvas.style.cursor = 'default';
+                    colorPicker.disabled = true; 
+                    colorPicker.classList.add('opacity-50','cursor-not-allowed');
+                    return;
+                }
+
+                if (currentSelectedTool === 'pencil') {
+                    pencilTool.classList.add('active-pencil');
+                    pencilTool.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                    colorPicker.disabled = false;
+                    colorPicker.classList.remove('opacity-50','cursor-not-allowed');
+                    canvas.style.cursor = 'crosshair';
+                } else if (currentSelectedTool === 'eraser') {
+                    eraserTool.classList.add('active-eraser');
+                    eraserTool.classList.remove('bg-gray-400', 'hover:bg-gray-500');
+                    colorPicker.disabled = true;
+                    colorPicker.classList.add('opacity-50','cursor-not-allowed');
+                    canvas.style.cursor = 'cell';
+                } else {
+                    canvas.style.cursor = 'default';
+                }
+            }
+
+            pencilTool.addEventListener('click', () => {
+                if (!toolsActuallyEnabled) return;
+                currentSelectedTool = 'pencil';
+                applyActiveToolVisuals();
+                if(isMouseOverCanvas) requestDrawCycle();
+            });
+            eraserTool.addEventListener('click', () => {
+                if (!toolsActuallyEnabled) return;
+                currentSelectedTool = 'eraser';
+                applyActiveToolVisuals();
+                 if(isMouseOverCanvas) requestDrawCycle();
+            });
+            
+            lineThickness.addEventListener('input', (e)=>{ 
+                thicknessValueSpan.textContent = e.target.value; 
+                if (toolsActuallyEnabled && isMouseOverCanvas) { requestDrawCycle(); }
+            });
+            
+            imageUploadInput.addEventListener('change', (e)=>{
+                const file = e.target.files[0]; if(!file) return;
+                const reader = new FileReader();
+                reader.onload = (event)=>{ const img = new Image(); img.onload = ()=>{ 
+                    backgroundImage = img; 
+                    paths = []; 
+                    updateToolsEnabledState(true);
+                    toggleUploadButtonVisibility(false);
+                    resizeAndRedraw(); 
+                };
+                    img.onerror = ()=>{ console.error("Error loading image."); backgroundImage = null; updateToolsEnabledState(false); toggleUploadButtonVisibility(true); resizeAndRedraw(); }
+                    img.src = event.target.result;
+                }; reader.onerror = ()=>{ console.error("Error reading file.");}; reader.readAsDataURL(file);
+                e.target.value = null;
+            });
+
+            clearCanvasBtn.addEventListener('click', ()=>{ 
+                paths = []; 
+                backgroundImage = null;
+                updateToolsEnabledState(false);
+                toggleUploadButtonVisibility(true);
+                resizeAndRedraw(); 
+            });
+
+            // Removed Inpaint Button Event Listener
+            
+            const downloadCanvasImage = (c, f) => { if (!c || c.width === 0 || c.height === 0) return; try { const d = c.toDataURL('image/png'); if (!d || d === 'data:,' || d.length < 100) return; const l = document.createElement('a'); l.download = f; l.href = d; document.body.appendChild(l); l.click(); setTimeout(() => { document.body.removeChild(l); }, 100); } catch (err) { console.error('Download error:', err); }};
+            
+            downloadFullImageBtn.addEventListener('click', () => {
+                if (!toolsActuallyEnabled) return;
+                const tempDownloadCanvas = document.createElement('canvas');
+                tempDownloadCanvas.width = canvas.width; tempDownloadCanvas.height = canvas.height;
+                const tempCtx = tempDownloadCanvas.getContext('2d');
+                tempCtx.clearRect(0,0, tempDownloadCanvas.width, tempDownloadCanvas.height);
+                if (backgroundImage && backgroundImage.complete && backgroundImage.naturalWidth > 0) {
+                    tempCtx.drawImage(backgroundImage, 0, 0, tempDownloadCanvas.width, tempDownloadCanvas.height);
+                }
+                renderDrawingLayerFromPaths();
+                tempCtx.drawImage(drawingLayerCanvas, 0, 0);
+                downloadCanvasImage(tempDownloadCanvas, 'sketchpad_full.png');
+            });
+
+            downloadDrawingOnlyBtn.addEventListener('click', () => {
+                if (!toolsActuallyEnabled) return;
+                renderDrawingLayerFromPaths();
+                downloadCanvasImage(drawingLayerCanvas, 'sketchpad_drawing_only.png'); 
+            });
+
+            // Initial Setup
+            resizeAndRedraw();
+            updateToolsEnabledState(false);
+            toggleUploadButtonVisibility(true);
+        });
+    </script>
+</body>
+</html>
