@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tetris</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for the game */
+        body {
+            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overscroll-behavior: none;
+            /* Prevents pull-to-refresh on mobile, good for games */
+        }
+
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        @media (min-width: 768px) {
+
+            /* md breakpoint */
+            .game-container {
+                flex-direction: row;
+                align-items: flex-start;
+            }
+        }
+
+        #tetrisCanvas {
+            background-color: #1f2937;
+            /* Tailwind gray-800 */
+            border: 2px solid #4b5563;
+            /* Tailwind gray-600 */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        #nextPieceCanvas {
+            background-color: #1f2937;
+            /* Tailwind gray-800 */
+            border: 1px solid #4b5563;
+            /* Tailwind gray-600 */
+        }
+
+        .button {
+            transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out;
+        }
+
+        .button:active {
+            transform: translateY(1px);
+        }
+
+        #messageOverlay {
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        .pixelated-font {
+            font-family: 'Press Start 2P', cursive;
+            /* A common pixel font, needs to be imported if not available */
+            /* Fallback if Press Start 2P is not available */
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        /* Add a common pixel font if desired, e.g., via Google Fonts:
+        <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+        Then apply 'pixelated-font' class to text elements. For simplicity, using Inter/system fonts.
+        */
+    </style>
+</head>
+
+<body class="bg-gray-900 text-white flex flex-col items-center justify-center min-h-screen p-4 select-none">
+
+    <h1 class="text-5xl font-bold mb-6 text-center tracking-wider">TETRIS</h1>
+
+    <div class="game-container">
+        <div class="main-game-area relative order-2 md:order-1">
+            <canvas id="tetrisCanvas" class="rounded-lg"></canvas>
+            <div id="messageOverlay"
+                class="absolute inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center text-3xl font-bold hidden rounded-lg p-4 text-center">
+                <p id="messageText" class="mb-4"></p>
+                <button id="restartFromMessageButton"
+                    class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg text-xl button hidden">Restart
+                    Game</button>
+            </div>
+        </div>
+
+        <div
+            class="game-info bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-xs md:w-64 order-1 md:order-2 flex flex-col gap-5">
+            <div>
+                <h2 class="text-lg font-semibold mb-1 text-gray-400">SCORE</h2>
+                <p id="score" class="text-4xl font-bold text-yellow-400">0</p>
+            </div>
+            <div>
+                <h2 class="text-lg font-semibold mb-1 text-gray-400">LINES</h2>
+                <p id="lines" class="text-4xl font-bold text-green-400">0</p>
+            </div>
+            <div>
+                <h2 class="text-lg font-semibold mb-1 text-gray-400">LEVEL</h2>
+                <p id="level" class="text-4xl font-bold text-purple-400">1</p>
+            </div>
+            <div>
+                <h2 class="text-lg font-semibold mb-1 text-gray-400">NEXT</h2>
+                <canvas id="nextPieceCanvas" class="rounded w-full h-24 md:h-32"></canvas>
+            </div>
+            <button id="startButton"
+                class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg w-full text-lg button">Start
+                Game</button>
+            <button id="pauseButton"
+                class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-4 rounded-lg w-full text-lg button hidden">Pause</button>
+        </div>
+    </div>
+
+    <p class="mt-8 text-sm text-gray-500 text-center">
+        Controls: Arrow Keys (Move/Rotate) | Space (Hard Drop) | P (Pause/Resume)
+    </p>
+
+    <p class="mt-8 text-sm text-gray-500 text-center">
+        <i>This app is created by Google's Gemini.</i>
+    </p>
+
+    <script>
+        // Game Canvas and Context
+        const canvas = document.getElementById('tetrisCanvas');
+        const ctx = canvas.getContext('2d');
+        const nextCanvas = document.getElementById('nextPieceCanvas');
+        const nextCtx = nextCanvas.getContext('2d');
+
+        // DOM Elements for UI updates
+        const scoreElement = document.getElementById('score');
+        const linesElement = document.getElementById('lines');
+        const levelElement = document.getElementById('level');
+        const startButton = document.getElementById('startButton');
+        const pauseButton = document.getElementById('pauseButton');
+        const messageOverlay = document.getElementById('messageOverlay');
+        const messageText = document.getElementById('messageText');
+        const restartFromMessageButton = document.getElementById('restartFromMessageButton');
+
+
+        // Game Constants
+        const COLS = 10;
+        const ROWS = 20;
+        const BLOCK_SIZE = 30; // For main canvas
+        const NEXT_BLOCK_SIZE = 20; // For next piece canvas
+        const EMPTY_COLOR = '#111827'; // Tailwind gray-900 (slightly darker for empty cells)
+        const GRID_LINE_COLOR = '#374151'; // Tailwind gray-700
+
+        // Tetromino shapes and colors
+        const TETROMINOES = {
+            'I': {
+                shape: [[0, 0, 0, 0], [1, 1, 1, 1], [0, 0, 0, 0], [0, 0, 0, 0]],
+                color: '#06b6d4' // Cyan
+            },
+            'J': {
+                shape: [[1, 0, 0], [1, 1, 1], [0, 0, 0]],
+                color: '#3b82f6' // Blue
+            },
+            'L': {
+                shape: [[0, 0, 1], [1, 1, 1], [0, 0, 0]],
+                color: '#f97316' // Orange
+            },
+            'O': {
+                shape: [[1, 1], [1, 1]],
+                color: '#eab308' // Yellow
+            },
+            'S': {
+                shape: [[0, 1, 1], [1, 1, 0], [0, 0, 0]],
+                color: '#22c55e' // Green
+            },
+            'T': {
+                shape: [[0, 1, 0], [1, 1, 1], [0, 0, 0]],
+                color: '#a855f7' // Purple
+            },
+            'Z': {
+                shape: [[1, 1, 0], [0, 1, 1], [0, 0, 0]],
+                color: '#ef4444' // Red
+            }
+        };
+        const PIECE_KEYS = Object.keys(TETROMINOES);
+
+        // Game State Variables
+        let board;
+        let currentPiece;
+        let nextPiece;
+        let score;
+        let linesCleared;
+        let level;
+        let gameOver;
+        let isPaused;
+        let dropCounter;
+        let dropInterval; // Milliseconds
+        let animationFrameId;
+
+        // Initialize canvas dimensions
+        canvas.width = COLS * BLOCK_SIZE;
+        canvas.height = ROWS * BLOCK_SIZE;
+        // Next piece canvas size (assuming max 4x4 piece)
+        nextCanvas.width = 4 * NEXT_BLOCK_SIZE + 20; // Added padding
+        nextCanvas.height = 4 * NEXT_BLOCK_SIZE + 20; // Added padding
+
+        // --- Helper Functions ---
+
+        // Create an empty game board
+        function createBoard() {
+            return Array.from({ length: ROWS }, () => Array(COLS).fill(EMPTY_COLOR));
+        }
+
+        // Get a random tetromino
+        function getRandomPiece() {
+            const key = PIECE_KEYS[Math.floor(Math.random() * PIECE_KEYS.length)];
+            const pieceData = TETROMINOES[key];
+            return {
+                matrix: pieceData.shape.map(row => row.slice()), // Deep copy shape
+                color: pieceData.color,
+                x: Math.floor(COLS / 2) - Math.ceil(pieceData.shape[0].length / 2),
+                y: 0
+            };
+        }
+
+        // Rotate a matrix (piece shape)
+        function rotateMatrix(matrix) {
+            const rows = matrix.length;
+            const cols = matrix[0].length;
+            const newMatrix = Array.from({ length: cols }, () => Array(rows).fill(0));
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    if (matrix[r][c]) {
+                        newMatrix[c][rows - 1 - r] = matrix[r][c];
+                    }
+                }
+            }
+            return newMatrix;
+        }
+
+        // Check if a move is valid (no collision with walls or other pieces)
+        function isValidMove(matrix, pieceX, pieceY) {
+            for (let r = 0; r < matrix.length; r++) {
+                for (let c = 0; c < matrix[r].length; c++) {
+                    if (matrix[r][c]) {
+                        const boardX = pieceX + c;
+                        const boardY = pieceY + r;
+                        if (boardX < 0 || boardX >= COLS || boardY >= ROWS || (boardY >= 0 && board[boardY][boardX] !== EMPTY_COLOR)) {
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+
+        // --- Game Logic Functions ---
+
+        // Reset game state
+        function resetGame() {
+            board = createBoard();
+            currentPiece = getRandomPiece();
+            nextPiece = getRandomPiece();
+            score = 0;
+            linesCleared = 0;
+            level = 1;
+            gameOver = false;
+            isPaused = false;
+            dropCounter = 0;
+            dropInterval = 1000; // Initial drop interval (1 second)
+            updateUI();
+            hideMessage();
+            pauseButton.textContent = 'Pause';
+            pauseButton.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+            pauseButton.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+        }
+
+        // Start the game
+        function startGame() {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+            resetGame();
+            startButton.textContent = 'Restart Game';
+            pauseButton.classList.remove('hidden');
+            gameLoop();
+        }
+
+        // Lock the current piece onto the board
+        function lockPiece() {
+            currentPiece.matrix.forEach((row, r) => {
+                row.forEach((value, c) => {
+                    if (value) {
+                        const boardX = currentPiece.x + c;
+                        const boardY = currentPiece.y + r;
+                        if (boardY >= 0 && boardY < ROWS && boardX >= 0 && boardX < COLS) {
+                            board[boardY][boardX] = currentPiece.color;
+                        }
+                    }
+                });
+            });
+
+            clearLines();
+            currentPiece = nextPiece;
+            nextPiece = getRandomPiece();
+
+            // Check for game over
+            if (!isValidMove(currentPiece.matrix, currentPiece.x, currentPiece.y)) {
+                gameOver = true;
+                showMessage('Game Over!', true);
+                pauseButton.classList.add('hidden');
+            }
+        }
+
+        // Clear completed lines
+        function clearLines() {
+            let linesRemovedThisTurn = 0;
+            for (let r = ROWS - 1; r >= 0;) {
+                if (board[r].every(cell => cell !== EMPTY_COLOR)) {
+                    board.splice(r, 1); // Remove the filled row
+                    board.unshift(Array(COLS).fill(EMPTY_COLOR)); // Add an empty row at the top
+                    linesRemovedThisTurn++;
+                } else {
+                    r--; // Move to the next row up
+                }
+            }
+
+            if (linesRemovedThisTurn > 0) {
+                linesCleared += linesRemovedThisTurn;
+                // Scoring system (example)
+                if (linesRemovedThisTurn === 1) score += 40 * level;
+                else if (linesRemovedThisTurn === 2) score += 100 * level;
+                else if (linesRemovedThisTurn === 3) score += 300 * level;
+                else if (linesRemovedThisTurn >= 4) score += 1200 * level; // Tetris!
+
+                // Update level
+                if (linesCleared >= level * 10) {
+                    level++;
+                    dropInterval = Math.max(100, 1000 - (level - 1) * 75); // Decrease drop interval
+                }
+                updateUI();
+            }
+        }
+
+        // Move the current piece
+        function movePiece(dx, dy) {
+            if (isPaused || gameOver) return false;
+            if (isValidMove(currentPiece.matrix, currentPiece.x + dx, currentPiece.y + dy)) {
+                currentPiece.x += dx;
+                currentPiece.y += dy;
+                if (dy > 0) { // If moved down (soft drop), reset drop counter
+                    dropCounter = 0;
+                }
+                return true;
+            }
+            return false;
+        }
+
+        // Rotate the current piece
+        function rotatePiece() {
+            if (isPaused || gameOver) return;
+            const rotatedMatrix = rotateMatrix(currentPiece.matrix);
+            if (isValidMove(rotatedMatrix, currentPiece.x, currentPiece.y)) {
+                currentPiece.matrix = rotatedMatrix;
+                dropCounter = 0; // Reset drop counter on successful rotation
+            } else {
+                // Basic wall kick attempt (try shifting left/right by 1)
+                if (isValidMove(rotatedMatrix, currentPiece.x + 1, currentPiece.y)) {
+                    currentPiece.x += 1;
+                    currentPiece.matrix = rotatedMatrix;
+                    dropCounter = 0;
+                } else if (isValidMove(rotatedMatrix, currentPiece.x - 1, currentPiece.y)) {
+                    currentPiece.x -= 1;
+                    currentPiece.matrix = rotatedMatrix;
+                    dropCounter = 0;
+                }
+                // Could add more complex wall kick logic here (e.g., up to 2 units, or specific I-piece kicks)
+            }
+        }
+
+        // Hard drop the piece
+        function hardDrop() {
+            if (isPaused || gameOver) return;
+            while (isValidMove(currentPiece.matrix, currentPiece.x, currentPiece.y + 1)) {
+                currentPiece.y++;
+            }
+            lockPiece();
+            dropCounter = 0; // Reset timer after hard drop
+        }
+
+        // Toggle pause state
+        function togglePause() {
+            if (gameOver) return;
+            isPaused = !isPaused;
+            if (isPaused) {
+                showMessage('Paused', false);
+                pauseButton.textContent = 'Resume';
+                pauseButton.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+                pauseButton.classList.add('bg-blue-500', 'hover:bg-blue-600');
+                if (animationFrameId) cancelAnimationFrame(animationFrameId); // Stop game loop updates
+            } else {
+                hideMessage();
+                pauseButton.textContent = 'Pause';
+                pauseButton.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+                pauseButton.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+                gameLoop(); // Resume game loop
+            }
+        }
+
+        // --- Drawing Functions ---
+
+        // Clear the main canvas
+        function clearCanvas(cvs, clrCtx) {
+            clrCtx.fillStyle = EMPTY_COLOR;
+            clrCtx.fillRect(0, 0, cvs.width, cvs.height);
+        }
+
+        // Draw a single block
+        function drawBlock(ctxToUse, x, y, color, blockSizeToUse) {
+            ctxToUse.fillStyle = color;
+            ctxToUse.fillRect(x * blockSizeToUse, y * blockSizeToUse, blockSizeToUse, blockSizeToUse);
+            ctxToUse.strokeStyle = GRID_LINE_COLOR; // Color for block border
+            ctxToUse.lineWidth = 1;
+            ctxToUse.strokeRect(x * blockSizeToUse, y * blockSizeToUse, blockSizeToUse, blockSizeToUse);
+        }
+
+        // Draw the grid lines on the main canvas
+        function drawGrid(targetCtx, width, height, bSize, gColor) {
+            targetCtx.strokeStyle = gColor;
+            targetCtx.lineWidth = 0.5;
+            for (let x = 0; x <= width; x += bSize) {
+                targetCtx.beginPath();
+                targetCtx.moveTo(x, 0);
+                targetCtx.lineTo(x, height);
+                targetCtx.stroke();
+            }
+            for (let y = 0; y <= height; y += bSize) {
+                targetCtx.beginPath();
+                targetCtx.moveTo(0, y);
+                targetCtx.lineTo(width, y);
+                targetCtx.stroke();
+            }
+        }
+
+
+        // Draw the game board (locked pieces)
+        function drawBoard() {
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    if (board[r][c] !== EMPTY_COLOR) {
+                        drawBlock(ctx, c, r, board[r][c], BLOCK_SIZE);
+                    }
+                }
+            }
+        }
+
+        // Draw the current falling piece
+        function drawCurrentPiece() {
+            if (!currentPiece) return;
+            currentPiece.matrix.forEach((row, r) => {
+                row.forEach((value, c) => {
+                    if (value) {
+                        drawBlock(ctx, currentPiece.x + c, currentPiece.y + r, currentPiece.color, BLOCK_SIZE);
+                    }
+                });
+            });
+        }
+
+        // Draw the next piece in the preview area
+        function drawNextPiece() {
+            clearCanvas(nextCanvas, nextCtx);
+            if (!nextPiece) return;
+
+            const matrix = nextPiece.matrix;
+            const color = nextPiece.color;
+            const matrixRows = matrix.length;
+            const matrixCols = matrix[0].length;
+
+            // Center the piece in the nextCanvas
+            const offsetX = (nextCanvas.width - matrixCols * NEXT_BLOCK_SIZE) / 2;
+            const offsetY = (nextCanvas.height - matrixRows * NEXT_BLOCK_SIZE) / 2;
+
+            matrix.forEach((row, r) => {
+                row.forEach((value, c) => {
+                    if (value) {
+                        // Draw block on nextCtx, adjusting for its own block size and centering
+                        nextCtx.fillStyle = color;
+                        nextCtx.fillRect(offsetX + c * NEXT_BLOCK_SIZE, offsetY + r * NEXT_BLOCK_SIZE, NEXT_BLOCK_SIZE, NEXT_BLOCK_SIZE);
+                        nextCtx.strokeStyle = GRID_LINE_COLOR;
+                        nextCtx.lineWidth = 1;
+                        nextCtx.strokeRect(offsetX + c * NEXT_BLOCK_SIZE, offsetY + r * NEXT_BLOCK_SIZE, NEXT_BLOCK_SIZE, NEXT_BLOCK_SIZE);
+                    }
+                });
+            });
+        }
+
+        // Main draw function: clears and redraws everything
+        function draw() {
+            clearCanvas(canvas, ctx);
+            drawGrid(ctx, canvas.width, canvas.height, BLOCK_SIZE, GRID_LINE_COLOR); // Draw grid first
+            drawBoard();
+            drawCurrentPiece();
+            drawNextPiece(); // Also draw the next piece
+        }
+
+        // --- UI Update Functions ---
+        function updateUI() {
+            scoreElement.textContent = score;
+            linesElement.textContent = linesCleared;
+            levelElement.textContent = level;
+        }
+
+        function showMessage(msg, showRestartButton = false) {
+            messageText.textContent = msg;
+            messageOverlay.classList.remove('hidden');
+            if (showRestartButton) {
+                restartFromMessageButton.classList.remove('hidden');
+            } else {
+                restartFromMessageButton.classList.add('hidden');
+            }
+        }
+
+        function hideMessage() {
+            messageOverlay.classList.add('hidden');
+        }
+
+
+        // --- Game Loop ---
+        let lastTime = 0;
+        function gameLoop(currentTime = 0) {
+            if (!isPaused && !gameOver) {
+                const deltaTime = currentTime - lastTime;
+                lastTime = currentTime;
+                dropCounter += deltaTime;
+
+                if (dropCounter > dropInterval) {
+                    if (!movePiece(0, 1)) { // Attempt to move down
+                        lockPiece(); // If cannot move down, lock the piece
+                    }
+                    dropCounter = 0;
+                }
+                draw();
+            }
+            if (!gameOver) {
+                animationFrameId = requestAnimationFrame(gameLoop);
+            }
+        }
+
+        // --- Event Listeners ---
+        document.addEventListener('keydown', (event) => {
+            if (gameOver && event.key !== 'Enter' && event.code !== 'Space') return; // Allow Enter/Space to restart if game over shown by button
+            if (isPaused && event.key !== 'p' && event.key !== 'P') return; // Allow P to unpause
+
+            switch (event.key) {
+                case 'ArrowLeft':
+                    movePiece(-1, 0);
+                    event.preventDefault();
+                    break;
+                case 'ArrowRight':
+                    movePiece(1, 0);
+                    event.preventDefault();
+                    break;
+                case 'ArrowDown':
+                    movePiece(0, 1); // Soft drop
+                    event.preventDefault();
+                    break;
+                case 'ArrowUp':
+                    rotatePiece();
+                    event.preventDefault();
+                    break;
+                case ' ': // Space bar for hard drop
+                case 'Spacebar': // Some browsers use Spacebar
+                    hardDrop();
+                    event.preventDefault();
+                    break;
+                case 'p':
+                case 'P':
+                    togglePause();
+                    event.preventDefault();
+                    break;
+                case 'Enter':
+                    if (gameOver && messageOverlay.classList.contains('hidden') === false) {
+                        startGame(); // Restart if game over message is shown
+                    }
+                    break;
+            }
+            if (!isPaused && !gameOver) draw(); // Redraw immediately after a move/rotation
+        });
+
+        startButton.addEventListener('click', startGame);
+        pauseButton.addEventListener('click', togglePause);
+        restartFromMessageButton.addEventListener('click', startGame);
+
+        // Initial setup
+        function initializeGameScreen() {
+            board = createBoard(); // Create an initial empty board for display
+            clearCanvas(canvas, ctx);
+            drawGrid(ctx, canvas.width, canvas.height, BLOCK_SIZE, GRID_LINE_COLOR);
+            drawBoard(); // Draw the empty board with grid
+            clearCanvas(nextCanvas, nextCtx); // Clear next piece canvas
+            updateUI(); // Set initial scores etc.
+            showMessage("Press Start Game", false);
+            messageText.classList.add('text-2xl'); // Smaller font for initial message
+            messageOverlay.classList.remove('hidden');
+            pauseButton.classList.add('hidden');
+        }
+
+        // Call this when the script loads
+        initializeGameScreen();
+
+    </script>
+</body>
+
+</html>
