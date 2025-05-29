@@ -133,25 +133,36 @@
 
         /* Base Project Card Styling */
         .project-card {
-            background-color: #1e293b; /* slate-800 */
-            border: 1px solid #334155; /* slate-700 */
-            border-radius: 0.75rem; /* rounded-xl */
-            padding: 1.5rem; /* p-6 */
+            background-color: #1e293b;
+            /* slate-800 */
+            border: 1px solid #334155;
+            /* slate-700 */
+            border-radius: 0.75rem;
+            /* rounded-xl */
+            padding: 1.5rem;
+            /* p-6 */
             transition: all 0.3s ease-in-out;
-            display: block; /* To make the whole card clickable if it's an <a> tag */
+            display: block;
+            /* To make the whole card clickable if it's an <a> tag */
         }
 
         /* Project card hover effect */
         .project-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(100, 181, 246, 0.15); /* sky-400 with opacity */
-            border-color: #64b5f6; /* sky-400 */
+            box-shadow: 0 10px 20px rgba(100, 181, 246, 0.15);
+            /* sky-400 with opacity */
+            border-color: #64b5f6;
+            /* sky-400 */
         }
+
         .project-card h3 {
-            @apply text-xl font-semibold text-sky-400 mb-2; /* Adjusted for better visibility */
+            @apply text-xl font-semibold text-sky-400 mb-2;
+            /* Adjusted for better visibility */
         }
+
         .project-card p {
-            @apply text-slate-400 text-sm; /* Adjusted for better visibility */
+            @apply text-slate-400 text-sm;
+            /* Adjusted for better visibility */
         }
     </style>
 </head>
@@ -173,12 +184,27 @@
         </div>
     </header>
 
-    <main class="pt-28 lg:pt-32 pb-16"> <div class="container mx-auto px-4 sm:px-6 lg:px-8 max-w-4xl">
+    <main class="pt-28 lg:pt-32 pb-16">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 max-w-4xl">
             <h2 class="text-3xl font-bold text-center mb-12 text-sky-400">Tools</h2>
-            
+
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <a href="sketchpad.html" class="project-card"> <h2>Sketchpad</h2>
-                    <p>A simple app that allows you to upload an image, draw on top of it, and download your final result.</p>
+                <a href="sketchpad.html" class="project-card">
+                    <h2>Sketchpad</h2>
+                    <p>A simple app that allows you to upload an image, draw on top of it, and download your final
+                        result.</p>
+                </a>
+            </div>
+        </div>
+
+        <br>
+
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 max-w-4xl">
+            <h2 class="text-3xl font-bold text-center mb-12 text-sky-400">Games</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <a href="tetris.html" class="project-card">
+                    <h2>Tetris</h2>
                 </a>
             </div>
         </div>

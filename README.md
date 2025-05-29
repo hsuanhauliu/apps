@@ -1,5 +1,5 @@
 # Tools
 
-Collection of my frontend tools. Go to <https://hsuanhauliu.github.io/tools/> to see all available tools.
+A collection of my frontend apps. Created with the help of [Gemini](https://gemini.google.com). Go to <https://hsuanhauliu.github.io/apps/>.
 
 Only files within the `docs/` folders are published.
