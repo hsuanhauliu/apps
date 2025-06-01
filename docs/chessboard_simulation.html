@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chessboard Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            padding-top: 20px;
+            background-color: #f0f0f0;
+        }
+
+        .header-text {
+            margin-bottom: 15px;
+            /* Adjusted margin */
+            font-size: 1.75rem;
+            /* Increased size */
+            color: #333;
+        }
+
+        .instructions {
+            margin-bottom: 20px;
+            /* Adjusted margin */
+            color: #555;
+            text-align: center;
+            max-width: 650px;
+            font-size: 1.05rem;
+            /* Increased size */
+        }
+
+        .controls {
+            margin-bottom: 20px;
+            /* Adjusted margin */
+            display: flex;
+            gap: 12px;
+        }
+
+        .control-button {
+            background-color: #4a5568;
+            color: white;
+            padding: 10px 20px;
+            /* Increased padding */
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            /* Increased size */
+            transition: background-color 0.2s;
+        }
+
+        .control-button:hover {
+            background-color: #2d3748;
+        }
+
+        .control-button.restart-button {
+            background-color: #48bb78;
+        }
+
+        .control-button.restart-button:hover {
+            background-color: #38a169;
+        }
+
+
+        .main-container {
+            display: flex;
+            flex-direction: row;
+            align-items: flex-start;
+            gap: 25px;
+            /* Increased gap */
+        }
+
+        @media (max-width: 860px) {
+
+            /* Adjusted breakpoint for stacking */
+            .main-container {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .piece-palette {
+                margin-bottom: 25px;
+                width: 90vw;
+                max-width: 450px;
+                /* Adjusted max-width */
+                order: -1;
+            }
+        }
+
+        /* Piece Palette Styles */
+        .piece-palette {
+            background-color: #e0e0e0;
+            padding: 20px;
+            /* Increased padding */
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            width: 200px;
+            /* Slightly wider palette */
+        }
+
+        .piece-palette h3 {
+            text-align: center;
+            margin-top: 0;
+            margin-bottom: 15px;
+            /* Increased margin */
+            color: #333;
+            font-size: 1.25rem;
+            /* Increased size */
+        }
+
+        .palette-columns {
+            display: flex;
+            justify-content: space-around;
+            gap: 20px;
+            /* Increased gap */
+        }
+
+        .palette-column {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            /* Increased gap */
+        }
+
+        .palette-piece {
+            font-size: 32px;
+            /* Increased size */
+            cursor: grab;
+            padding: 6px;
+            /* Adjusted padding */
+            border-radius: 4px;
+            background-color: #f9f9f9;
+            border: 1px solid #ccc;
+            min-width: 45px;
+            /* Adjusted min-width */
+            text-align: center;
+            user-select: none;
+        }
+
+        .palette-piece:hover {
+            background-color: #d0d0d0;
+        }
+
+        .palette-piece:active {
+            cursor: grabbing;
+        }
+
+
+        /* Chessboard Styles */
+        .chess-board {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            width: 480px;
+            /* Increased size */
+            height: 480px;
+            /* Increased size */
+            border: 3px solid #333;
+            /* Slightly thicker border */
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+
+        @media (max-width: 540px) {
+
+            /* Adjusted breakpoint for board scaling */
+            .chess-board {
+                width: 90vw;
+                height: 90vw;
+                max-width: 480px;
+                max-height: 480px;
+            }
+        }
+
+        .square {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 38px;
+            /* Increased piece size on board */
+            user-select: none;
+            position: relative;
+        }
+
+        .square.light {
+            background-color: #f0d9b5;
+        }
+
+        .square.dark {
+            background-color: #b58863;
+        }
+
+        .piece {
+            cursor: grab;
+            line-height: 1;
+        }
+
+        .piece:active {
+            cursor: grabbing;
+        }
+
+        .coordinate {
+            position: absolute;
+            font-size: 11px;
+            /* Slightly larger coordinates */
+            color: rgba(0, 0, 0, 0.4);
+            pointer-events: none;
+        }
+
+        .coordinate.file {
+            bottom: 3px;
+            right: 4px;
+        }
+
+        /* Adjusted position */
+        .coordinate.rank {
+            top: 3px;
+            left: 4px;
+        }
+
+        /* Adjusted position */
+        .dark .coordinate {
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        /* Custom Context Menu */
+        #context-menu {
+            position: absolute;
+            z-index: 1000;
+            background-color: white;
+            border: 1px solid #ccc;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+            padding: 6px 0;
+            /* Adjusted padding */
+            display: none;
+            min-width: 200px;
+            /* Increased min-width */
+        }
+
+        #context-menu ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        #context-menu li {
+            padding: 10px 18px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        /* Increased padding & font */
+        #context-menu li:hover {
+            background-color: #e9e9e9;
+        }
+
+        #context-menu li .piece-char {
+            margin-right: 10px;
+            font-size: 1.2rem;
+        }
+
+        /* Increased size & margin */
+    </style>
+</head>
+
+<body>
+    <h1 class="header-text">Chessboard Simulator</h1>
+    <p class="instructions">
+        Drag pieces from the palette or right-click on a square to add pieces.
+    </p>
+    <div class="controls">
+        <button id="restart-board-button" class="control-button restart-button">Restart</button>
+        <button id="clear-board-button" class="control-button">Clear</button>
+    </div>
+
+    <div class="main-container">
+        <div id="piece-palette" class="piece-palette">
+            <h3>Piece Palette</h3>
+            <div class="palette-columns">
+                <div id="white-pieces-palette" class="palette-column">
+                </div>
+                <div id="black-pieces-palette" class="palette-column">
+                </div>
+            </div>
+        </div>
+
+        <div id="chess-board" class="chess-board"></div>
+    </div>
+
+    <div id="context-menu">
+        <ul>
+        </ul>
+    </div>
+
+    <script>
+        const boardElement = document.getElementById('chess-board');
+        const contextMenuElement = document.getElementById('context-menu');
+        const contextMenuList = contextMenuElement.querySelector('ul');
+        const whitePiecesPalette = document.getElementById('white-pieces-palette');
+        const blackPiecesPalette = document.getElementById('black-pieces-palette');
+        const clearBoardButton = document.getElementById('clear-board-button');
+        const restartBoardButton = document.getElementById('restart-board-button');
+
+
+        let targetSquareElement = null;
+
+        const PIECES = {
+            'wK': { unicode: '♔', name: 'White King', color: 'white' },
+            'wQ': { unicode: '♕', name: 'White Queen', color: 'white' },
+            'wR': { unicode: '♖', name: 'White Rook', color: 'white' },
+            'wB': { unicode: '♗', name: 'White Bishop', color: 'white' },
+            'wN': { unicode: '♘', name: 'White Knight', color: 'white' },
+            'wP': { unicode: '♙', name: 'White Pawn', color: 'white' },
+            'bK': { unicode: '♚', name: 'Black King', color: 'black' },
+            'bQ': { unicode: '♛', name: 'Black Queen', color: 'black' },
+            'bR': { unicode: '♜', name: 'Black Rook', color: 'black' },
+            'bB': { unicode: '♝', name: 'Black Bishop', color: 'black' },
+            'bN': { unicode: '♞', name: 'Black Knight', color: 'black' },
+            'bP': { unicode: '♟', name: 'Black Pawn', color: 'black' },
+            'empty': { unicode: '', name: 'Clear Square', color: 'none' }
+        };
+
+        const initialBoardSetup = [
+            ['bR', 'bN', 'bB', 'bQ', 'bK', 'bB', 'bN', 'bR'],
+            ['bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP'],
+            [null, null, null, null, null, null, null, null],
+            [null, null, null, null, null, null, null, null],
+            [null, null, null, null, null, null, null, null],
+            [null, null, null, null, null, null, null, null],
+            ['wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP'],
+            ['wR', 'wN', 'wB', 'wQ', 'wK', 'wB', 'wN', 'wR']
+        ];
+
+
+        function createBoard() {
+            boardElement.innerHTML = '';
+            const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+            const ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
+
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const square = document.createElement('div');
+                    square.classList.add('square');
+                    square.classList.add((r + c) % 2 === 0 ? 'light' : 'dark');
+                    square.dataset.row = r;
+                    square.dataset.col = c;
+                    square.dataset.algebraic = files[c] + ranks[r];
+
+                    const rankLabel = document.createElement('span');
+                    rankLabel.classList.add('coordinate', 'rank');
+                    rankLabel.textContent = ranks[r];
+                    if (c === 0) square.appendChild(rankLabel);
+
+                    const fileLabel = document.createElement('span');
+                    fileLabel.classList.add('coordinate', 'file');
+                    fileLabel.textContent = files[c];
+                    if (r === 7) square.appendChild(fileLabel);
+
+                    square.addEventListener('dragover', handleDragOver);
+                    square.addEventListener('drop', handleDropOnSquare);
+                    square.addEventListener('contextmenu', handleRightClick);
+                    boardElement.appendChild(square);
+
+                    const initialPieceKey = initialBoardSetup[r][c];
+                    if (initialPieceKey && PIECES[initialPieceKey]) {
+                        addPieceToSquare(PIECES[initialPieceKey].unicode, initialPieceKey, square);
+                    }
+                }
+            }
+        }
+
+        function populatePiecePalette() {
+            whitePiecesPalette.innerHTML = '';
+            blackPiecesPalette.innerHTML = '';
+
+            for (const key in PIECES) {
+                if (key === 'empty') continue;
+
+                const pieceData = PIECES[key];
+                const pieceElement = document.createElement('div');
+                pieceElement.classList.add('palette-piece');
+                pieceElement.textContent = pieceData.unicode;
+                pieceElement.draggable = true;
+                pieceElement.dataset.pieceKey = key;
+
+                pieceElement.addEventListener('dragstart', handleDragStartPalettePiece);
+
+                if (pieceData.color === 'white') {
+                    whitePiecesPalette.appendChild(pieceElement);
+                } else if (pieceData.color === 'black') {
+                    blackPiecesPalette.appendChild(pieceElement);
+                }
+            }
+        }
+
+        // --- Drag and Drop Handlers ---
+        function handleDragStartPalettePiece(event) {
+            event.dataTransfer.setData('text/plain', event.target.dataset.pieceKey);
+            event.dataTransfer.setData('application/drag-source', 'palette');
+            event.dataTransfer.effectAllowed = 'copy';
+        }
+
+        function handleDragStartBoardPiece(event) {
+            const pieceKey = event.target.dataset.pieceKey;
+            const sourceSquare = event.target.parentElement;
+
+            event.dataTransfer.setData('text/plain', pieceKey);
+            event.dataTransfer.setData('application/drag-source', 'board');
+            event.dataTransfer.setData('application/source-square-coords', `${sourceSquare.dataset.row},${sourceSquare.dataset.col}`);
+            event.dataTransfer.effectAllowed = 'move';
+        }
+
+
+        function handleDragOver(event) {
+            event.preventDefault();
+            const dragSource = event.dataTransfer.getData('application/drag-source');
+            if (dragSource === 'palette') {
+                event.dataTransfer.dropEffect = 'copy';
+            } else if (dragSource === 'board') {
+                event.dataTransfer.dropEffect = 'move';
+            }
+        }
+
+        function handleDropOnSquare(event) {
+            event.preventDefault();
+            const pieceKey = event.dataTransfer.getData('text/plain');
+            const dragSource = event.dataTransfer.getData('application/drag-source');
+            const targetSquareElement = event.currentTarget;
+
+            if (PIECES[pieceKey]) {
+                if (dragSource === 'board') {
+                    const sourceCoords = event.dataTransfer.getData('application/source-square-coords');
+                    if (sourceCoords) {
+                        const [row, col] = sourceCoords.split(',');
+                        const sourceSquareElement = document.querySelector(`.square[data-row='${row}'][data-col='${col}']`);
+                        if (sourceSquareElement && sourceSquareElement !== targetSquareElement) {
+                            clearPieceFromSquare(sourceSquareElement);
+                        }
+                    }
+                }
+                addPieceToSquare(PIECES[pieceKey].unicode, pieceKey, targetSquareElement);
+            }
+        }
+
+        // --- Context Menu Handlers ---
+        function handleRightClick(event) {
+            event.preventDefault();
+            targetSquareElement = event.currentTarget;
+            const { clientX: mouseX, clientY: mouseY } = event;
+            contextMenuElement.style.top = `${mouseY}px`;
+            contextMenuElement.style.left = `${mouseX}px`;
+            contextMenuElement.style.display = 'block';
+            populateContextMenu();
+        }
+
+        function populateContextMenu() {
+            contextMenuList.innerHTML = '';
+            for (const keyInPieces in PIECES) {
+                const pieceData = PIECES[keyInPieces];
+                const listItem = document.createElement('li');
+                const pieceCharSpan = document.createElement('span');
+                pieceCharSpan.classList.add('piece-char');
+                pieceCharSpan.textContent = pieceData.unicode || ' ';
+                listItem.appendChild(pieceCharSpan);
+                listItem.appendChild(document.createTextNode(pieceData.name));
+                listItem.addEventListener('click', () => {
+                    addPieceToSquare(pieceData.unicode, keyInPieces, targetSquareElement);
+                    hideContextMenu();
+                });
+                contextMenuList.appendChild(listItem);
+            }
+        }
+
+        function hideContextMenu() {
+            contextMenuElement.style.display = 'none';
+            targetSquareElement = null;
+        }
+
+        // Function to add/update piece on a square
+        function addPieceToSquare(pieceUnicode, pieceKey, squareElement) {
+            if (!squareElement) return;
+
+            if (pieceKey === 'empty') {
+                clearPieceFromSquare(squareElement);
+                return;
+            }
+
+            let pieceSpan = squareElement.querySelector('.piece');
+            if (!pieceSpan) {
+                pieceSpan = document.createElement('span');
+                pieceSpan.classList.add('piece');
+                const coordinates = squareElement.querySelectorAll('.coordinate');
+                if (coordinates.length > 0) {
+                    squareElement.insertBefore(pieceSpan, coordinates[coordinates.length - 1].nextSibling);
+                } else {
+                    squareElement.prepend(pieceSpan);
+                }
+            }
+            pieceSpan.textContent = pieceUnicode;
+            pieceSpan.draggable = true;
+            pieceSpan.dataset.pieceKey = pieceKey;
+
+            pieceSpan.removeEventListener('dragstart', handleDragStartBoardPiece);
+            pieceSpan.addEventListener('dragstart', handleDragStartBoardPiece);
+        }
+
+        // Function to clear a piece from a square
+        function clearPieceFromSquare(squareElement) {
+            if (!squareElement) return;
+            const pieceSpan = squareElement.querySelector('.piece');
+            if (pieceSpan) {
+                pieceSpan.remove();
+            }
+        }
+
+        // Function to clear all pieces from the board
+        function clearEntireBoard() {
+            const allSquares = boardElement.querySelectorAll('.square');
+            allSquares.forEach(square => {
+                clearPieceFromSquare(square);
+            });
+        }
+        clearBoardButton.addEventListener('click', clearEntireBoard);
+
+        // Function to restart the board to its initial setup
+        function restartGame() {
+            createBoard();
+        }
+        restartBoardButton.addEventListener('click', restartGame);
+
+
+        // Global click listener to hide context menu
+        document.addEventListener('click', (event) => {
+            if (!contextMenuElement.contains(event.target) && event.button !== 2) {
+                let clickedSquare = event.target.classList.contains('square') ? event.target : event.target.closest('.square');
+                if (!clickedSquare) {
+                    hideContextMenu();
+                }
+            }
+        });
+
+        contextMenuElement.addEventListener('contextmenu', (event) => {
+            event.preventDefault();
+        });
+
+        // Initialize
+        window.onload = () => {
+            createBoard();
+            populatePiecePalette();
+        };
+    </script>
+</body>
+
+</html>
