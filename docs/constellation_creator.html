@@ -1,23 +1,32 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Constellation Creator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+        xintegrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            overflow: hidden; /* Prevent body scroll */
+            overflow: hidden;
+            /* Prevent body scroll */
         }
+
         #drawingCanvas {
             cursor: crosshair;
         }
+
         .mode-btn.active {
             background-color: #3b82f6;
             color: white;
         }
+
         #notification {
             position: fixed;
             top: 20px;
@@ -27,20 +36,21 @@
             color: white;
             padding: 1rem 1.5rem;
             border-radius: 0.5rem;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             z-index: 1000;
             opacity: 0;
             transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
             pointer-events: none;
         }
+
         #notification.show {
             opacity: 1;
             transform: translateX(-50%) translateY(0);
         }
-        
+
         #artboard {
             position: absolute;
-            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
             border: 2px solid #475569;
         }
 
@@ -49,36 +59,75 @@
         }
     </style>
 </head>
+
 <body class="bg-slate-900 h-screen flex">
 
     <!-- Left Toolbar -->
-    <aside class="bg-slate-950/50 backdrop-blur-sm border-r border-slate-700 text-white p-3 flex flex-col items-center space-y-4">
+    <aside
+        class="bg-slate-950/50 backdrop-blur-sm border-r border-slate-700 text-white p-3 flex flex-col items-center space-y-4">
         <h2 class="text-lg font-bold text-slate-300">Tools</h2>
         <div class="flex flex-col items-center space-y-2">
-            <button id="addStarMode" class="mode-btn p-3 rounded-lg transition-colors duration-200 text-slate-300 hover:bg-slate-700" title="Add Stars"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd" /></svg></button>
-            <button id="connectStarMode" class="mode-btn p-3 rounded-lg transition-colors duration-200 text-slate-300 hover:bg-slate-700" title="Connect Stars"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M8.433 7.418c.158-.103.346-.196.552-.257l-2.433-2.433A2.25 2.25 0 005.47 2.75L3 5.22a2.25 2.25 0 000 3.182l2.47 2.47a2.25 2.25 0 003.182 0l.28-.28z" /><path fill-rule="evenodd" d="M11.567 12.582c-.158.103-.346.196-.552-.257l2.433 2.433a2.25 2.25 0 003.182 0l2.47-2.47a2.25 2.25 0 000-3.182l-2.47-2.47a2.25 2.25 0 00-3.182 0l-.28.28zM10.5 8.75a.75.75 0 00-1.5 0v2.5a.75.75 0 001.5 0v-2.5z" clip-rule="evenodd" /></svg></button>
-            <button id="moveStarMode" class="mode-btn p-3 rounded-lg transition-colors duration-200 text-slate-300 hover:bg-slate-700" title="Move Stars"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 00-1 1v3H6a1 1 0 100 2h3v3a1 1 0 102 0v-3h3a1 1 0 100-2h-3V6a1 1 0 00-1-1z" /><path d="M13.293 14.707a1 1 0 010-1.414l-4-4a1 1 0 01-1.414 0l-4 4a1 1 0 11-1.414-1.414l4-4a3 3 0 014.242 0l4 4a1 1 0 01-1.414 1.414L13 13.586V16a1 1 0 11-2 0v-2.414z" /></svg></button>
-            <button id="blurBtn" class="mode-btn p-3 rounded-lg transition-colors duration-200 text-slate-300 hover:bg-slate-700 hidden" title="Blur Background"><svg id="blurIcon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /><path fill-rule="evenodd" d="M.458 10C3.732 4.943 7.522 3 10 3s6.268 1.943 9.542 7c-3.274 5.057-7.064 7-9.542 7S3.732 15.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" /></svg></button>
+            <button id="addStarMode"
+                class="mode-btn p-3 rounded-lg transition-colors duration-200 text-slate-300 hover:bg-slate-700 w-12 h-12 flex items-center justify-center"
+                title="Add Stars">
+                <i class="fas fa-star fa-lg"></i>
+            </button>
+            <button id="connectStarMode"
+                class="mode-btn p-3 rounded-lg transition-colors duration-200 text-slate-300 hover:bg-slate-700 w-12 h-12 flex items-center justify-center"
+                title="Connect Stars">
+                <i class="fas fa-link fa-lg"></i>
+            </button>
+            <button id="moveStarMode"
+                class="mode-btn p-3 rounded-lg transition-colors duration-200 text-slate-300 hover:bg-slate-700 w-12 h-12 flex items-center justify-center"
+                title="Move Stars">
+                <i class="fas fa-arrows-up-down-left-right fa-lg"></i>
+            </button>
+            <button id="blurBtn"
+                class="mode-btn p-3 rounded-lg transition-colors duration-200 text-slate-300 hover:bg-slate-700 hidden w-12 h-12 flex items-center justify-center"
+                title="Blur Background">
+                <i id="blurIcon" class="fas fa-eye fa-lg"></i>
+            </button>
         </div>
     </aside>
 
     <!-- Main Content -->
     <main class="flex-1 flex flex-col p-4 overflow-auto">
-        <div class="bg-slate-800/50 backdrop-blur-sm border border-slate-700 p-6 rounded-xl shadow-lg flex-1 flex flex-col">
-            <div class="text-center mb-4"><h1 class="text-3xl sm:text-4xl font-bold text-slate-100">Constellation Creator</h1><p class="text-slate-400 mt-2">Create your own constellations on any image.</p></div>
-            <div id="controls" class="flex flex-wrap items-center justify-center gap-2 sm:gap-4 mb-4">
-                <button id="downloadCombinedBtn" class="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center gap-2">Download Image</button>
-                <button id="downloadDrawingBtn" class="bg-sky-600 hover:bg-sky-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center gap-2">Download Drawing</button>
-                <button id="exportJsonBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center gap-2">Export JSON</button>
-                <button id="clearDrawingBtn" class="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Clear Drawing</button>
-                <button id="resetBtn" class="bg-rose-700 hover:bg-rose-800 text-white font-bold py-2 px-4 rounded-lg transition-colors">Reset</button>
-                <input type="file" id="imageLoader" class="hidden" accept="image/*"/><input type="file" id="jsonLoader" class="hidden" accept=".json"/>
+        <div
+            class="bg-slate-800/50 backdrop-blur-sm border border-slate-700 p-6 rounded-xl shadow-lg flex-1 flex flex-col">
+            <div class="text-center mb-4">
+                <h1 class="text-3xl sm:text-4xl font-bold text-slate-100">Constellation Creator</h1>
+                <p class="text-slate-400 mt-2">Create your own constellations on any image.</p>
             </div>
-            <div id="canvasContainer" class="flex-1 w-full min-h-0 bg-black/50 rounded-lg overflow-hidden flex items-center justify-center shadow-inner relative">
-                <div id="uploadPrompt" class="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-4 p-4">
-                    <label for="imageLoader" class="cursor-pointer bg-sky-600 hover:bg-sky-700 text-white font-bold py-3 px-5 rounded-lg transition-colors flex items-center gap-3 text-lg shadow-md">Upload Image</label>
-                    <button id="startBlankBtn" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-5 rounded-lg transition-colors flex items-center gap-3 text-lg shadow-md">Start with Blank Canvas</button>
-                    <label for="jsonLoader" class="cursor-pointer bg-purple-700 hover:bg-purple-600 text-white font-bold py-3 px-5 rounded-lg transition-colors flex items-center gap-3 text-lg shadow-md">Import from JSON</label>
+            <div id="controls" class="flex flex-wrap items-center justify-center gap-2 sm:gap-4 mb-4">
+                <button id="downloadCombinedBtn"
+                    class="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center gap-2">Download
+                    Image</button>
+                <button id="downloadDrawingBtn"
+                    class="bg-sky-600 hover:bg-sky-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center gap-2">Download
+                    Drawing</button>
+                <button id="exportJsonBtn"
+                    class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center gap-2">Export
+                    JSON</button>
+                <button id="clearDrawingBtn"
+                    class="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Clear</button>
+                <button id="resetBtn"
+                    class="bg-rose-700 hover:bg-rose-800 text-white font-bold py-2 px-4 rounded-lg transition-colors">Reset</button>
+                <input type="file" id="imageLoader" class="hidden" accept="image/*" /><input type="file" id="jsonLoader"
+                    class="hidden" accept=".json" />
+            </div>
+            <div id="canvasContainer"
+                class="flex-1 w-full min-h-0 bg-black/50 rounded-lg overflow-hidden flex items-center justify-center shadow-inner relative">
+                <div id="uploadPrompt"
+                    class="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-4 p-4">
+                    <label for="imageLoader"
+                        class="cursor-pointer bg-sky-600 hover:bg-sky-700 text-white font-bold py-3 px-5 rounded-lg transition-colors flex items-center gap-3 text-lg shadow-md">Upload
+                        Image</label>
+                    <button id="startBlankBtn"
+                        class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-5 rounded-lg transition-colors flex items-center gap-3 text-lg shadow-md">Blank
+                        Canvas</button>
+                    <label for="jsonLoader"
+                        class="cursor-pointer bg-purple-700 hover:bg-purple-600 text-white font-bold py-3 px-5 rounded-lg transition-colors flex items-center gap-3 text-lg shadow-md">Import
+                        from JSON</label>
                 </div>
                 <div id="artboard" class="hidden">
                     <canvas id="backgroundCanvas" class="w-full h-full block"></canvas>
@@ -98,7 +147,7 @@
         const canvasContainer = document.getElementById('canvasContainer'), uploadPrompt = document.getElementById('uploadPrompt');
         const notification = document.getElementById('notification');
         const addStarModeBtn = document.getElementById('addStarMode'), connectStarModeBtn = document.getElementById('connectStarMode');
-        const moveStarModeBtn = document.getElementById('moveStarMode'), blurBtn = document.getElementById('blurBtn');
+        const moveStarModeBtn = document.getElementById('moveStarMode'), blurBtn = document.getElementById('blurBtn'), blurIcon = document.getElementById('blurIcon');
         const downloadCombinedBtn = document.getElementById('downloadCombinedBtn'), downloadDrawingBtn = document.getElementById('downloadDrawingBtn');
         const exportJsonBtn = document.getElementById('exportJsonBtn'), startBlankBtn = document.getElementById('startBlankBtn');
 
@@ -109,13 +158,13 @@
         let notificationTimeout;
 
         // Initial Setup
-        setMode('add'); 
+        setMode('add');
 
         // Event Listeners
         imageLoader.addEventListener('change', handleImageUpload);
         jsonLoader.addEventListener('change', handleJsonUpload);
         startBlankBtn.addEventListener('click', () => handleStartBlank());
-        
+
         addStarModeBtn.addEventListener('click', () => setMode('add'));
         connectStarModeBtn.addEventListener('click', () => setMode('connect'));
         moveStarModeBtn.addEventListener('click', () => setMode('move'));
@@ -125,16 +174,18 @@
         window.addEventListener('mousemove', handleWindowMouseMove);
         window.addEventListener('mouseup', handleWindowMouseUp);
         drawingCanvas.addEventListener('click', handleCanvasClick);
-        
+
         clearDrawingBtn.addEventListener('click', clearDrawing);
         resetBtn.addEventListener('click', resetAll);
         downloadCombinedBtn.addEventListener('click', downloadCombinedImage);
         downloadDrawingBtn.addEventListener('click', downloadDrawingOnly);
         exportJsonBtn.addEventListener('click', exportConstellationJSON);
-        
+
         window.addEventListener('resize', () => {
-            setupCanvas();
-            draw();
+            if (backgroundImage) {
+                setupCanvas();
+                draw();
+            }
         });
 
         function showNotification(message) {
@@ -156,8 +207,8 @@
 
         function handleStartBlank(callback) {
             isFromUploadedImage = false;
-            const w = canvasContainer.clientWidth * 0.9;
-            const h = canvasContainer.clientHeight * 0.9;
+            const w = 600;
+            const h = 600;
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = w; tempCanvas.height = h;
             const tempCtx = tempCanvas.getContext('2d');
@@ -166,7 +217,7 @@
             startWithImage(tempCanvas.toDataURL(), callback);
             blurBtn.classList.add('hidden');
         }
-        
+
         function handleJsonUpload(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -184,15 +235,16 @@
             reader.readAsText(file);
             e.target.value = '';
         }
-        
+
         function loadConstellationFromJSON(data) {
             clearDrawing();
             let maxId = -1;
-            stars = data.stars.map(starData => {
-                const idNum = parseInt(starData.id.replace('star_', ''));
+            stars = Object.keys(data.stars).map(starId => {
+                const starData = data.stars[starId];
+                const idNum = parseInt(starId.replace('star_', ''));
                 if (idNum > maxId) maxId = idNum;
                 return {
-                    id: starData.id,
+                    id: starId,
                     x: (starData.x_percent / 100) * drawingCanvas.width,
                     y: (starData.y_percent / 100) * drawingCanvas.height
                 };
@@ -218,6 +270,8 @@
             if (!isFromUploadedImage) return;
             isBlurred = !isBlurred;
             backgroundCanvas.classList.toggle('blurred', isBlurred);
+            blurIcon.classList.toggle('fa-eye', !isBlurred);
+            blurIcon.classList.toggle('fa-eye-slash', isBlurred);
         }
 
         function setMode(newMode) {
@@ -228,7 +282,7 @@
             selectedStarForConnection = null;
             draw();
         }
-        
+
         function clearDrawing() {
             stars = []; lines = []; starIdCounter = 0; selectedStarForConnection = null;
             draw();
@@ -272,7 +326,7 @@
             }
             draw();
         }
-        
+
         function handleStarDragStart(e) {
             if (mode !== 'move' || !backgroundImage) return;
             const { x, y } = getMousePos(e);
@@ -282,7 +336,7 @@
                 drawingCanvas.style.cursor = 'grabbing';
             }
         }
-        
+
         function getMousePos(e) {
             const rect = drawingCanvas.getBoundingClientRect();
             return { x: e.clientX - rect.left, y: e.clientY - rect.top };
@@ -293,26 +347,33 @@
             const containerW = canvasContainer.clientWidth;
             const containerH = canvasContainer.clientHeight;
             let w, h;
-            
+
             const oldWidth = backgroundCanvas.width;
             const oldHeight = backgroundCanvas.height;
 
             if (isFromUploadedImage) {
                 const imgRatio = backgroundImage.width / backgroundImage.height;
-                if (imgRatio > containerW / containerH) { w = containerW * 0.9; h = w / imgRatio; } 
-                else { h = containerH * 0.9; w = h * imgRatio; }
+                const maxW = containerW * 0.95;
+                const maxH = containerH * 0.95;
+                if (imgRatio > maxW / maxH) {
+                    w = maxW;
+                    h = w / imgRatio;
+                } else {
+                    h = maxH;
+                    w = h * imgRatio;
+                }
             } else {
-                 w = oldWidth > 0 ? oldWidth : containerW * 0.7;
-                 h = oldHeight > 0 ? oldHeight : containerH * 0.7;
+                w = backgroundImage.width;
+                h = backgroundImage.height;
             }
-            
+
             artboard.style.width = `${w}px`;
             artboard.style.height = `${h}px`;
             artboard.style.top = `${(containerH - h) / 2}px`;
             artboard.style.left = `${(containerW - w) / 2}px`;
-            
-            if (oldWidth > 0 && oldHeight > 0) {
-                 stars.forEach(star => {
+
+            if (oldWidth > 0 && oldHeight > 0 && (oldWidth !== w || oldHeight !== h)) {
+                stars.forEach(star => {
                     star.x = star.x * (w / oldWidth);
                     star.y = star.y * (h / oldHeight);
                 });
@@ -320,7 +381,7 @@
 
             [backgroundCanvas, drawingCanvas].forEach(c => { c.width = w; c.height = h; });
         }
-        
+
         function draw() {
             if (!backgroundImage) return;
             backgroundCtx.clearRect(0, 0, backgroundCanvas.width, backgroundCanvas.height);
@@ -342,7 +403,7 @@
             stars.forEach(star => {
                 targetCtx.beginPath(); targetCtx.arc(star.x, star.y, STAR_RADIUS, 0, Math.PI * 2);
                 targetCtx.fillStyle = 'white';
-                if (selectedStarForConnection && selectedStarForConnection.id === star.id) targetCtx.fillStyle = '#60a5fa'; 
+                if (selectedStarForConnection && selectedStarForConnection.id === star.id) targetCtx.fillStyle = '#60a5fa';
                 targetCtx.shadowColor = 'rgba(255, 255, 255, 1)'; targetCtx.shadowBlur = 15;
                 targetCtx.fill();
             });
@@ -365,37 +426,44 @@
             document.body.appendChild(link); link.click(); document.body.removeChild(link);
         }
 
-        function downloadCombinedImage() { downloadCanvas('constellation.png', true); }
-        function downloadDrawingOnly() { downloadCanvas('drawing.png', false); }
-        
+        function downloadCombinedImage() { downloadCanvas('constellation_creator_img.png', true); }
+        function downloadDrawingOnly() { downloadCanvas('constellation_creator_drawing.png', false); }
+
         function exportConstellationJSON() {
             if (!backgroundImage || stars.length === 0) { showNotification("Please draw a constellation first."); return; }
             const exportData = {
-                stars: stars.map(star => ({ id: star.id, x_percent: (star.x / drawingCanvas.width) * 100, y_percent: (star.y / drawingCanvas.height) * 100 })),
+                stars: stars.reduce((acc, star) => {
+                    acc[star.id] = {
+                        x_percent: (star.x / drawingCanvas.width) * 100,
+                        y_percent: (star.y / drawingCanvas.height) * 100
+                    };
+                    return acc;
+                }, {}),
                 connections: lines.map(line => ({ from: line.startId, to: line.endId }))
             };
             const jsonString = JSON.stringify(exportData, null, 2);
             const blob = new Blob([jsonString], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
-            link.download = 'constellation.json'; link.href = url;
+            link.download = 'constellation_creator.json'; link.href = url;
             document.body.appendChild(link); link.click(); document.body.removeChild(link);
             URL.revokeObjectURL(url);
         }
-        
+
         function handleWindowMouseMove(e) {
             if (isStarDragging) {
                 const { x, y } = getMousePos(e);
-                draggedStar.x = x; 
+                draggedStar.x = x;
                 draggedStar.y = y;
                 draw();
             }
         }
 
         function handleWindowMouseUp() {
-            isStarDragging = false; 
+            isStarDragging = false;
             draggedStar = null;
         }
     </script>
 </body>
+
 </html>
