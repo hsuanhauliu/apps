@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Howard Liu - Software Engineer</title>
-    <link rel="icon" type="image/x-icon" href="./favicon.ico">
+    <link rel="icon" type="image/x-icon" href="./assets/favicon.ico">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -139,11 +139,11 @@
             /* slate-700 */
             border-radius: 0.75rem;
             /* rounded-xl */
-            padding: 1.5rem;
-            /* p-6 */
             transition: all 0.3s ease-in-out;
             display: block;
             /* To make the whole card clickable if it's an <a> tag */
+            overflow: hidden;
+            /* To ensure child rounding is respected */
         }
 
         /* Project card hover effect */
@@ -155,7 +155,7 @@
             /* sky-400 */
         }
 
-        .project-card h3 {
+        .project-card h2 {
             @apply text-xl font-semibold text-sky-400 mb-2;
             /* Adjusted for better visibility */
         }
@@ -177,42 +177,14 @@
                 <a href="/" id="header-logo-link"
                     class="nav-link-header flex items-center space-x-2 text-white hover:text-gray-300 transition duration-300"
                     aria-label="Howard Liu - Home">
-                    <img id="header-logo-img" src="./logo.png" alt="Howard Liu Logo" class="h-8">
+                    <img id="header-logo-img" src="./assets/logo.png" alt="Howard Liu Logo" class="h-8">
                     <span class="text-2xl font-bold">Howard Liu</span>
                 </a>
             </div>
         </div>
     </header>
 
-    <main class="pt-28 lg:pt-32 pb-16">
-        <div class="container mx-auto px-4 sm:px-6 lg:px-8 max-w-4xl">
-            <h2 class="text-3xl font-bold text-center mb-12 text-sky-400">Tools</h2>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <a href="sketchpad.html" class="project-card">
-                    <h2>Sketchpad</h2>
-                    <p>A simple app that allows you to upload an image, draw on top of it, and download your final
-                        result.</p>
-                </a>
-            </div>
-        </div>
-
-        <br>
-
-        <div class="container mx-auto px-4 sm:px-6 lg:px-8 max-w-4xl">
-            <h2 class="text-3xl font-bold text-center mb-12 text-sky-400">Games</h2>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <a href="tetris.html" class="project-card">
-                    <h2>Tetris</h2>
-                </a>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <a href="chessboard_simulation.html" class="project-card">
-                    <h2>Chessboard Simulation</h2>
-                </a>
-            </div>
-        </div>
+    <main id="portfolio-sections" class="pt-28 lg:pt-32 pb-16">
     </main>
 
     <footer class="py-8 text-center border-t border-slate-700">
@@ -220,6 +192,125 @@
     </footer>
 
     <script>
+        // --- DATA INPUT ---
+        const portfolioData = [
+            {
+                section_name: "Tools",
+                cards: [
+                    {
+                        title: "Sketchpad",
+                        description: "A simple app that allows you to upload an image, draw on it, and download your final result.",
+                        link: "sketchpad.html",
+                        image: "./assets/imgs/sketchpad_preview.png"
+                    },
+                    {
+                        title: "Simple PDF Editor",
+                        description: "Pure client-side app and mobile friendly PDF editor.",
+                        link: "simple_pdf_editor.html",
+                        image: "./assets/imgs/simple_pdf_editor_preview.png"
+                    },
+                    {
+                        title: "Constellation Creator",
+                        description: "Create your own constellation star signs using any image.",
+                        link: "constellation_creator.html",
+                        image: "./assets/imgs/constellation_creator_preview.png"
+                    }
+                ]
+            },
+            {
+                section_name: "Games",
+                cards: [
+                    {
+                        title: "Tetris",
+                        description: "Classic tetris game.",
+                        link: "tetris.html",
+                        image: "./assets/imgs/tetris_preview.png"
+                    },
+                    {
+                        title: "Chessboard Simulation",
+                        description: "A configurable chessboard for chess position simulation and analysis.",
+                        link: "chessboard_simulation.html",
+                        image: "./assets/imgs/chessboard_simulation_preview.png"
+                    }
+                ]
+            }
+        ];
+
+        // --- DYNAMIC CONTENT GENERATION ---
+        document.addEventListener('DOMContentLoaded', function () {
+            const mainContainer = document.getElementById('portfolio-sections');
+            const placeholderImage = 'https://via.placeholder.com/400x225.png?text=Project';
+            if (!mainContainer) return;
+
+            portfolioData.forEach((sectionData, index) => {
+                // Create the main container for the section
+                const sectionContainer = document.createElement('div');
+                sectionContainer.className = 'container mx-auto px-4 sm:px-6 lg:px-8 max-w-4xl';
+
+                // Create and append the section heading
+                const heading = document.createElement('h2');
+                heading.className = 'text-3xl font-bold text-center mb-12 text-sky-400';
+                heading.textContent = sectionData.section_name;
+                sectionContainer.appendChild(heading);
+
+                // Create the grid container for the cards
+                const gridContainer = document.createElement('div');
+                gridContainer.className = 'grid grid-cols-1 md:grid-cols-2 gap-8';
+
+                // Create and append each card
+                sectionData.cards.forEach(cardData => {
+                    // 1. Create the link wrapper for the whole card
+                    const cardLink = document.createElement('a');
+                    cardLink.href = cardData.link;
+                    cardLink.className = 'project-card';
+
+                    // 2. Create the image
+                    const cardImage = document.createElement('img');
+                    cardImage.src = cardData.image || placeholderImage;
+                    cardImage.alt = cardData.title;
+                    cardImage.className = 'w-full h-48 object-cover'; // Style the image
+                    cardLink.appendChild(cardImage);
+
+                    // 3. Create a div for the text content to apply padding
+                    const contentDiv = document.createElement('div');
+                    contentDiv.className = 'p-6';
+
+                    // 4. Create the title
+                    const cardTitle = document.createElement('h2');
+                    cardTitle.textContent = cardData.title;
+                    contentDiv.appendChild(cardTitle);
+
+                    // 5. Create the description if it exists
+                    if (cardData.description) {
+                        const cardDescription = document.createElement('p');
+                        cardDescription.textContent = cardData.description;
+                        contentDiv.appendChild(cardDescription);
+                    }
+
+                    // 6. Append the content div to the card link
+                    cardLink.appendChild(contentDiv);
+
+                    // 7. Append the finished card to the grid
+                    gridContainer.appendChild(cardLink);
+                });
+
+                sectionContainer.appendChild(gridContainer);
+                mainContainer.appendChild(sectionContainer);
+
+                // Add a line break between sections, but not after the last one
+                if (index < portfolioData.length - 1) {
+                    const spacer = document.createElement('br');
+                    mainContainer.appendChild(spacer);
+                }
+            });
+
+            // Set current year in the footer
+            document.getElementById('currentYear').textContent = new Date().getFullYear();
+        });
+
+
+        // --- BACKGROUND EFFECTS ---
+
         // Starry Sky Effect
         const starrySkyContainer = document.getElementById('starry-sky-container');
         const numRegularStars = 150;
