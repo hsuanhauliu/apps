@@ -195,8 +195,14 @@
         // --- DATA INPUT ---
         const portfolioData = [
             {
-                section_name: "Tools",
+                section_name: "Utilities",
                 cards: [
+                    {
+                        title: "Split",
+                        description: "A client-side expense splitting app allows groups to track and divide shared costs.",
+                        link: "/split",
+                        image: "./assets/imgs/split.png"
+                    },
                     {
                         title: "Sketchpad",
                         description: "A simple app that allows you to upload an image, draw on it, and download your final result.",
@@ -251,7 +257,7 @@
             portfolioData.forEach((sectionData, index) => {
                 // Create the main container for the section
                 const sectionContainer = document.createElement('div');
-                sectionContainer.className = 'container mx-auto px-4 sm:px-6 lg:px-8 max-w-4xl';
+                sectionContainer.className = 'container mx-auto px-4 sm:px-6 lg:px-8 max-w-4xl mb-10';
 
                 // Create and append the section heading
                 const heading = document.createElement('h2');
@@ -261,7 +267,7 @@
 
                 // Create the grid container for the cards
                 const gridContainer = document.createElement('div');
-                gridContainer.className = 'grid grid-cols-1 md:grid-cols-2 gap-8';
+                gridContainer.className = 'grid grid-cols-1 md:grid-cols-3 gap-8';
 
                 // Create and append each card
                 sectionData.cards.forEach(cardData => {
