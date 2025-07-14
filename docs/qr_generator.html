@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .file-input-button {
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        input[type="color"] {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            width: 40px;
+            height: 40px;
+            background-color: transparent;
+            border: none;
+            outline: none;
+            cursor: pointer;
+            border-radius: 0.5rem;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+
+        input[type="color"]::-webkit-color-swatch {
+            border: none;
+            border-radius: 0.5rem;
+        }
+
+        /* Horizontal scrollbar styling */
+        .frame-options-container::-webkit-scrollbar {
+            height: 8px;
+        }
+
+        .frame-options-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .frame-options-container::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+
+        .frame-options-container::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        .frame-option.selected {
+            border-color: #3b82f6;
+            /* blue-500 */
+            transform: scale(1.05);
+        }
+
+        details>summary {
+            list-style: none;
+        }
+
+        details>summary::-webkit-details-marker {
+            display: none;
+        }
+
+        details>summary::before {
+            content: '►';
+            margin-right: 0.5rem;
+            font-size: 0.8em;
+            transition: transform 0.2s ease-in-out;
+        }
+
+        details[open]>summary::before {
+            transform: rotate(90deg);
+        }
+
+        .color-tab.active-tab {
+            border-color: #3b82f6;
+            color: #3b82f6;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 flex justify-center py-12 px-4">
+    <div class="w-full max-w-5xl bg-white rounded-2xl shadow-lg p-6 md:p-8">
+        <div class="text-center mb-8">
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-800">QR Code Generator</h1>
+            <p class="text-gray-500 mt-2">Create and customize your QR codes instantly.</p>
+        </div>
+
+        <div class="flex flex-col md:flex-row gap-8">
+            <!-- Left Column: Settings -->
+            <div class="md:w-2/5 flex-shrink-0 space-y-4">
+                <!-- URL Input -->
+                <div>
+                    <label for="urlInput" class="block text-sm font-medium text-gray-700 mb-2">Enter URL</label>
+                    <input type="url" id="urlInput" placeholder="https://example.com"
+                        class="w-full px-4 py-2 text-gray-800 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition duration-300">
+                </div>
+
+                <!-- Logo Options -->
+                <details class="space-y-2">
+                    <summary class="cursor-pointer font-medium text-gray-700">Add Image</summary>
+                    <div class="mt-2 p-4 bg-gray-50 rounded-lg">
+                        <div class="flex items-center space-x-4">
+                            <label for="logoInput"
+                                class="file-input-button w-full text-center px-4 py-2 bg-gray-200 text-gray-600 rounded-lg hover:bg-gray-300">
+                                Choose File
+                            </label>
+                            <div id="logoPreviewContainer" class="hidden items-center space-x-2">
+                                <img id="logoPreview" src="" alt="Logo Preview"
+                                    class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm">
+                                <button id="removeLogoBtn" class="text-red-500 hover:text-red-700">&times;</button>
+                            </div>
+                        </div>
+                        <input type="file" id="logoInput" accept="image/*">
+                        <p id="fileName" class="text-xs text-gray-500 mt-2 truncate"></p>
+                    </div>
+                </details>
+
+                <!-- Color Options -->
+                <details class="space-y-2">
+                    <summary class="cursor-pointer font-medium text-gray-700">Custom Colors</summary>
+                    <div class="mt-2 p-4 bg-gray-50 rounded-lg space-y-4">
+                        <!-- Color Mode Tabs -->
+                        <div class="flex border-b border-gray-200">
+                            <button id="singleColorTab"
+                                class="color-tab active-tab px-4 py-2 text-sm font-medium -mb-px border-b-2">Single
+                                Color</button>
+                            <button id="gradientTab"
+                                class="color-tab px-4 py-2 text-sm font-medium border-b-2 border-transparent hover:border-gray-300">Gradient</button>
+                        </div>
+
+                        <!-- Single Color Controls -->
+                        <div id="single-color-controls">
+                            <div>
+                                <label for="colorDark" class="block text-sm font-medium text-gray-700 mb-1">QR
+                                    Color</label>
+                                <input type="color" id="colorDark" value="#000000" class="w-10 h-10">
+                            </div>
+                        </div>
+
+                        <!-- Gradient Controls -->
+                        <div id="gradient-controls" class="hidden">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label for="gradientStart"
+                                        class="block text-sm font-medium text-gray-700 mb-1">Start</label>
+                                    <input type="color" id="gradientStart" value="#ff0000" class="w-full h-10">
+                                </div>
+                                <div>
+                                    <label for="gradientEnd"
+                                        class="block text-sm font-medium text-gray-700 mb-1">End</label>
+                                    <input type="color" id="gradientEnd" value="#0000ff" class="w-full h-10">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Background Color (Always Visible) -->
+                        <div class="border-t border-gray-200 pt-4">
+                            <label for="colorLight"
+                                class="block text-sm font-medium text-gray-700 mb-1">Background</label>
+                            <input type="color" id="colorLight" value="#ffffff" class="w-10 h-10">
+                        </div>
+                    </div>
+                </details>
+
+                <!-- Frame Options -->
+                <details class="space-y-2">
+                    <summary class="cursor-pointer font-medium text-gray-700">Custom Frame</summary>
+                    <div class="mt-2 p-4 bg-gray-50 rounded-lg space-y-3">
+                        <input type="text" id="frameText" placeholder="Frame Text (e.g., SCAN ME)"
+                            class="w-full px-3 py-2 text-sm text-gray-800 bg-white border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 outline-none">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label for="frameColor" class="block text-xs font-medium text-gray-700 mb-1">Frame
+                                    Color</label>
+                                <input type="color" id="frameColor" value="#000000" class="w-full h-10">
+                            </div>
+                            <div>
+                                <label for="frameTextColor" class="block text-xs font-medium text-gray-700 mb-1">Text
+                                    Color</label>
+                                <input type="color" id="frameTextColor" value="#ffffff" class="w-full h-10">
+                            </div>
+                        </div>
+                        <div class="border-t border-gray-200 pt-3">
+                            <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                <input type="checkbox" id="addPadding"
+                                    class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                Add Padding
+                            </label>
+                        </div>
+                    </div>
+                </details>
+
+                <!-- Generate Button -->
+                <button id="generateBtn"
+                    class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-transform transform hover:scale-105 duration-300 ease-in-out">
+                    Generate QR Code
+                </button>
+
+                <div id="error-message" class="hidden mt-2 text-center text-red-500 font-medium"></div>
+            </div>
+
+            <!-- Right Column: QR Code Display -->
+            <div
+                class="md:w-3/5 flex flex-col items-start justify-start bg-gray-50 rounded-lg p-4 min-h-[450px] md:min-h-0">
+                <!-- Placeholder -->
+                <div id="qr-placeholder" class="text-center text-gray-400 w-full mt-8">
+                    <svg class="w-16 h-16 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none"
+                        viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5z" />
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M13.5 15.375v-1.5a1.125 1.125 0 011.125-1.125h1.5a1.125 1.125 0 011.125 1.125v1.5m-2.25 0h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008v-.008z" />
+                    </svg>
+                    <p class="font-medium">Your QR code will appear here</p>
+                </div>
+                <!-- QR Code Display -->
+                <div id="qrcode-container" class="hidden w-full flex-col items-center justify-center">
+                    <div id="qrcode-wrapper" class="p-2 bg-transparent rounded-lg shadow-inner mb-4">
+                        <canvas id="final-canvas"></canvas>
+                    </div>
+                    <div id="qrcode" class="hidden"></div>
+                    <!-- Frame Options -->
+                    <div id="frame-options-section" class="w-full hidden mt-4">
+                        <h3 class="text-sm font-medium text-gray-700 mb-2 text-center">Choose a Frame Style</h3>
+                        <div id="frame-options-container"
+                            class="frame-options-container flex items-center gap-3 overflow-x-auto p-2">
+                            <!-- Frame options will be injected here -->
+                        </div>
+                    </div>
+                    <div id="action-buttons" class="hidden mt-4 flex items-center gap-4">
+                        <button id="copyBtn"
+                            class="bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-4 focus:ring-gray-300 transition duration-300 flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                                class="bi bi-clipboard" viewBox="0 0 16 16">
+                                <path
+                                    d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z" />
+                                <path
+                                    d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z" />
+                            </svg>
+                            <span>Copy</span>
+                        </button>
+                        <a id="downloadBtn"
+                            class="bg-green-500 text-white font-semibold py-2 px-6 rounded-lg hover:bg-green-600 focus:outline-none focus:ring-4 focus:ring-green-300 transition duration-300">
+                            Download PNG
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const urlInput = document.getElementById('urlInput');
+        const logoInput = document.getElementById('logoInput');
+        const generateBtn = document.getElementById('generateBtn');
+        const qrPlaceholder = document.getElementById('qr-placeholder');
+        const qrCodeContainer = document.getElementById('qrcode-container');
+        const qrCodeEl = document.getElementById('qrcode');
+        const finalCanvasEl = document.getElementById('final-canvas');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const copyBtn = document.getElementById('copyBtn');
+        const actionButtons = document.getElementById('action-buttons');
+        const errorMessage = document.getElementById('error-message');
+        const logoPreview = document.getElementById('logoPreview');
+        const logoPreviewContainer = document.getElementById('logoPreviewContainer');
+        const removeLogoBtn = document.getElementById('removeLogoBtn');
+        const fileNameEl = document.getElementById('fileName');
+        const colorDarkInput = document.getElementById('colorDark');
+        const colorLightInput = document.getElementById('colorLight');
+        const singleColorTab = document.getElementById('singleColorTab');
+        const gradientTab = document.getElementById('gradientTab');
+        const singleColorControls = document.getElementById('single-color-controls');
+        const gradientControls = document.getElementById('gradient-controls');
+        const gradientStartInput = document.getElementById('gradientStart');
+        const gradientEndInput = document.getElementById('gradientEnd');
+        const frameTextInput = document.getElementById('frameText');
+        const frameColorInput = document.getElementById('frameColor');
+        const frameTextColorInput = document.getElementById('frameTextColor');
+        const addPaddingCheckbox = document.getElementById('addPadding');
+        const qrcodeWrapper = document.getElementById('qrcode-wrapper');
+        const frameOptionsContainer = document.getElementById('frame-options-container');
+        const frameOptionsSection = document.getElementById('frame-options-section');
+
+        let logoImage = null;
+        let lastQrCanvas = null;
+        let colorMode = 'single';
+        let selectedFrameStyle = 'none';
+
+        const frameDesigns = [
+            { name: 'No Frame', style: 'none' },
+            { name: 'Rectangle', style: 'rectangle' },
+            { name: 'Rounded', style: 'rounded' },
+            { name: 'Corners', style: 'corners' },
+        ];
+
+        // Populate Frame Designs
+        function populateFrameOptions() {
+            frameOptionsContainer.innerHTML = '';
+            frameDesigns.forEach((design, index) => {
+                const option = document.createElement('div');
+                option.className = 'frame-option cursor-pointer p-2 border-2 border-transparent rounded-lg transition-all duration-200 flex-shrink-0';
+                option.style.width = '100px';
+                option.dataset.index = index;
+
+                const preview = document.createElement('div');
+                preview.className = 'h-12 w-full rounded flex items-center justify-center text-center text-xs px-1 bg-gray-200';
+                preview.textContent = design.name;
+
+                const name = document.createElement('p');
+                name.className = 'text-center text-xs mt-1 font-medium';
+                name.textContent = design.name;
+
+                option.appendChild(preview);
+                option.appendChild(name);
+
+                option.addEventListener('click', () => {
+                    selectFrame(index);
+                    if (lastQrCanvas) {
+                        drawFinalCanvas(lastQrCanvas);
+                    }
+                });
+                frameOptionsContainer.appendChild(option);
+            });
+        }
+
+        function selectFrame(index) {
+            const design = frameDesigns[index];
+            selectedFrameStyle = design.style;
+
+            document.querySelectorAll('.frame-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+            document.querySelector(`.frame-option[data-index='${index}']`).classList.add('selected');
+        }
+
+
+        // Event Listeners
+        logoInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    logoImage = new Image();
+                    logoImage.src = event.target.result;
+                    logoPreview.src = event.target.result;
+                    logoPreviewContainer.classList.remove('hidden');
+                    logoPreviewContainer.classList.add('flex');
+                    fileNameEl.textContent = file.name;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        removeLogoBtn.addEventListener('click', () => {
+            logoImage = null;
+            logoInput.value = '';
+            logoPreviewContainer.classList.add('hidden');
+            logoPreviewContainer.classList.remove('flex');
+            fileNameEl.textContent = '';
+        });
+
+        generateBtn.addEventListener('click', () => {
+            const url = urlInput.value.trim();
+            if (!url) {
+                showError('Please enter a URL.');
+                return;
+            }
+            hideError();
+            generateQRCode(url);
+        });
+
+        copyBtn.addEventListener('click', () => {
+            finalCanvasEl.toBlob(function (blob) {
+                try {
+                    navigator.clipboard.write([
+                        new ClipboardItem({ 'image/png': blob })
+                    ]);
+                    const copyBtnSpan = copyBtn.querySelector('span');
+                    copyBtnSpan.textContent = 'Copied!';
+                    setTimeout(() => {
+                        copyBtnSpan.textContent = 'Copy';
+                    }, 2000);
+                } catch (error) {
+                    console.error('Failed to copy image: ', error);
+                    alert('Failed to copy image to clipboard.');
+                }
+            }, 'image/png');
+        });
+
+        singleColorTab.addEventListener('click', () => {
+            if (colorMode === 'single') return;
+            colorMode = 'single';
+            singleColorTab.classList.add('active-tab');
+            gradientTab.classList.remove('active-tab');
+            singleColorControls.classList.remove('hidden');
+            gradientControls.classList.add('hidden');
+        });
+
+        gradientTab.addEventListener('click', () => {
+            if (colorMode === 'gradient') return;
+            colorMode = 'gradient';
+            gradientTab.classList.add('active-tab');
+            singleColorTab.classList.remove('active-tab');
+            gradientControls.classList.remove('hidden');
+            singleColorControls.classList.add('hidden');
+        });
+
+        // Main function to generate the QR code
+        function generateQRCode(url) {
+            qrCodeEl.innerHTML = '';
+            qrPlaceholder.classList.add('hidden');
+            qrCodeContainer.classList.add('hidden');
+            actionButtons.classList.add('hidden');
+
+            const options = {
+                text: url,
+                width: 256,
+                height: 256,
+                colorDark: '#000000',
+                colorLight: 'rgba(0,0,0,0)', // Always use transparent background for source
+                correctLevel: QRCode.CorrectLevel.H
+            };
+
+            new QRCode(qrCodeEl, options);
+
+            setTimeout(() => {
+                const qrCanvas = qrCodeEl.getElementsByTagName('canvas')[0];
+                if (!qrCanvas) {
+                    showError("Could not generate QR code. Try a different URL or colors.");
+                    return;
+                }
+                lastQrCanvas = qrCanvas;
+
+                const drawFn = () => drawFinalCanvas(qrCanvas);
+
+                if (logoImage && !logoImage.complete) {
+                    logoImage.onload = drawFn;
+                } else {
+                    drawFn();
+                }
+
+            }, 100);
+        }
+
+        // Function to draw the QR code, logo, and frame onto the final canvas
+        function drawFinalCanvas(qrCanvas) {
+            if (!qrCanvas || typeof qrCanvas.getContext !== 'function') {
+                showError("Failed to render QR Code canvas.");
+                return;
+            }
+            const frameText = frameTextInput.value.trim();
+            const frameColor = frameColorInput.value;
+            const frameTextColor = frameTextColorInput.value;
+            const hasText = frameText !== '';
+            const usePadding = addPaddingCheckbox.checked;
+
+            const finalCtx = finalCanvasEl.getContext('2d');
+            const qrSize = 256;
+            const quietZone = usePadding ? 16 : 0;
+
+            let framePadding = { top: 0, right: 0, bottom: 0, left: 0 };
+            let textHeight = 0;
+            let textGap = 0;
+
+            // Define padding based on frame style
+            if (selectedFrameStyle !== 'none') {
+                framePadding = { top: 20, right: 20, bottom: 20, left: 20 };
+                if (hasText) {
+                    textHeight = 20;
+                    textGap = 15;
+                }
+            }
+
+            finalCanvasEl.width = qrSize + framePadding.left + framePadding.right + (quietZone * 2);
+            finalCanvasEl.height = qrSize + framePadding.top + framePadding.bottom + (quietZone * 2) + textHeight + textGap;
+
+            const qrX = framePadding.left + quietZone;
+            const qrY = framePadding.top + quietZone;
+
+            // 1. Draw Frame Background
+            finalCtx.fillStyle = colorLightInput.value;
+            finalCtx.fillRect(0, 0, finalCanvasEl.width, finalCanvasEl.height);
+
+            if (selectedFrameStyle === 'rectangle' || selectedFrameStyle === 'rounded') {
+                finalCtx.fillStyle = frameColor;
+                const radius = selectedFrameStyle === 'rounded' ? 20 : 0;
+                finalCtx.beginPath();
+                finalCtx.roundRect(0, 0, finalCanvasEl.width, finalCanvasEl.height, radius);
+                finalCtx.fill();
+            }
+
+            // 2. Draw QR Code Background (for padding)
+            finalCtx.fillStyle = colorLightInput.value;
+            finalCtx.fillRect(framePadding.left, framePadding.top, qrSize + (quietZone * 2), qrSize + (quietZone * 2));
+
+            // 3. Create a colored version of the QR Code
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = qrSize;
+            tempCanvas.height = qrSize;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(qrCanvas, 0, 0, qrSize, qrSize);
+
+            if (colorMode === 'gradient') {
+                const gradient = tempCtx.createLinearGradient(0, 0, qrSize, qrSize);
+                gradient.addColorStop(0, gradientStartInput.value);
+                gradient.addColorStop(1, gradientEndInput.value);
+                tempCtx.fillStyle = gradient;
+            } else {
+                tempCtx.fillStyle = colorDarkInput.value;
+            }
+
+            tempCtx.globalCompositeOperation = 'source-in';
+            tempCtx.fillRect(0, 0, qrSize, qrSize);
+
+            // 4. Draw the colored QR code
+            finalCtx.drawImage(tempCanvas, qrX, qrY, qrSize, qrSize);
+
+            // 5. Draw Frame decorations and Text
+            if (selectedFrameStyle !== 'none') {
+                if (hasText || selectedFrameStyle === 'corners') {
+                    finalCtx.font = 'bold 20px Inter';
+                    finalCtx.textAlign = 'center';
+                    finalCtx.textBaseline = 'middle';
+
+                    const textY = qrY + qrSize + quietZone + textGap + (framePadding.bottom / 2);
+
+                    if (selectedFrameStyle === 'corners') {
+                        finalCtx.strokeStyle = frameColor;
+                        finalCtx.lineWidth = 5;
+                        const bracketLength = 30;
+                        const offset = 10;
+                        // Top-left
+                        finalCtx.beginPath();
+                        finalCtx.moveTo(qrX - offset, qrY - offset + bracketLength);
+                        finalCtx.lineTo(qrX - offset, qrY - offset);
+                        finalCtx.lineTo(qrX - offset + bracketLength, qrY - offset);
+                        finalCtx.stroke();
+                        // Top-right
+                        finalCtx.beginPath();
+                        finalCtx.moveTo(qrX + qrSize + offset - bracketLength, qrY - offset);
+                        finalCtx.lineTo(qrX + qrSize + offset, qrY - offset);
+                        finalCtx.lineTo(qrX + qrSize + offset, qrY - offset + bracketLength);
+                        finalCtx.stroke();
+                        // Bottom-left
+                        finalCtx.beginPath();
+                        finalCtx.moveTo(qrX - offset, qrY + qrSize + offset - bracketLength);
+                        finalCtx.lineTo(qrX - offset, qrY + qrSize + offset);
+                        finalCtx.lineTo(qrX - offset + bracketLength, qrY + qrSize + offset);
+                        finalCtx.stroke();
+                        // Bottom-right
+                        finalCtx.beginPath();
+                        finalCtx.moveTo(qrX + qrSize + offset, qrY + qrSize + offset - bracketLength);
+                        finalCtx.lineTo(qrX + qrSize + offset, qrY + qrSize + offset);
+                        finalCtx.lineTo(qrX + qrSize + offset - bracketLength, qrY + qrSize + offset);
+                        finalCtx.stroke();
+                    }
+
+                    if (hasText) {
+                        finalCtx.fillStyle = frameTextColor;
+                        finalCtx.fillText(frameText, finalCanvasEl.width / 2, textY);
+                    }
+                }
+            }
+
+
+            // 6. Draw Logo
+            if (logoImage) {
+                const logoSize = qrSize * 0.25;
+                const logoX = qrX + (qrSize - logoSize) / 2;
+                const logoY = qrY + (qrSize - logoSize) / 2;
+                const logoBgPadding = 5;
+
+                finalCtx.fillStyle = '#fff';
+                finalCtx.fillRect(logoX - logoBgPadding, logoY - logoBgPadding, logoSize + logoBgPadding * 2, logoSize + logoBgPadding * 2);
+                finalCtx.drawImage(logoImage, logoX, logoY, logoSize, logoSize);
+            }
+
+            setupActionButtons();
+            qrPlaceholder.classList.add('hidden');
+            qrCodeContainer.classList.remove('hidden');
+            qrCodeContainer.classList.add('flex');
+            frameOptionsSection.classList.remove('hidden');
+        }
+
+        function setupActionButtons() {
+            downloadBtn.href = finalCanvasEl.toDataURL('image/png');
+            downloadBtn.download = 'custom-qrcode.png';
+            actionButtons.classList.remove('hidden');
+            actionButtons.classList.add('flex');
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.remove('hidden');
+            qrPlaceholder.classList.remove('hidden');
+            qrCodeContainer.classList.add('hidden');
+            frameOptionsSection.classList.add('hidden');
+            actionButtons.classList.add('hidden');
+        }
+
+        function hideError() {
+            errorMessage.classList.add('hidden');
+        }
+
+        // Initial setup
+        function init() {
+            populateFrameOptions();
+            selectFrame(0);
+            // Set initial tab state
+            singleColorTab.classList.add('active-tab');
+            gradientTab.classList.remove('active-tab');
+            singleColorControls.classList.remove('hidden');
+            gradientControls.classList.add('hidden');
+        }
+
+        init();
+
+    </script>
+</body>
+
+</html>
