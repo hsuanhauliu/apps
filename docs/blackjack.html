@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blackjack</title>
+    <title>Multiplayer Blackjack</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
@@ -113,6 +113,17 @@
             border-color: #a3e635;
             /* Lime 400 */
         }
+
+        /* Hide spin buttons on number inputs */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
     </style>
 </head>
 
@@ -125,16 +136,21 @@
         <div class="space-y-6">
             <div>
                 <label for="bankroll-input" class="text-lg sm:text-xl mb-2 block">Set your starting bankroll:</label>
-                <input type="number" id="bankroll-input" value="500"
-                    class="w-full p-3 rounded-lg text-center text-2xl font-bold bg-gray-800 text-white border-2 border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-400">
+                <div class="relative">
+                    <span
+                        class="absolute inset-y-0 left-0 flex items-center pl-4 text-2xl font-bold text-gray-400">$</span>
+                    <input type="number" id="bankroll-input" value="1000"
+                        class="w-full p-3 pl-8 pr-8 text-center rounded-lg text-2xl font-bold bg-gray-800 text-white border-2 border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-400">
+                </div>
             </div>
 
             <div>
                 <label for="cpu-players-input" class="text-lg sm:text-xl mb-2 block">Number of opponents:</label>
                 <select id="cpu-players-input"
                     class="w-full p-3 rounded-lg text-center text-xl font-bold bg-gray-800 text-white border-2 border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-400">
+                    <option value="0" selected>0 Opponents</option>
                     <option value="1">1 Opponent</option>
-                    <option value="2" selected>2 Opponents</option>
+                    <option value="2">2 Opponents</option>
                     <option value="3">3 Opponents</option>
                     <option value="4">4 Opponents</option>
                 </select>
@@ -675,7 +691,15 @@
             newGameControls.style.display = gamePhase === 'end' ? 'flex' : 'none';
 
             const userPlayer = players[currentPlayerIndex];
-            const canSplit = userPlayer?.isUser && gamePhase === 'playing' && userPlayer.hands[activeHandIndex]?.cards.length === 2 && getCardValue(userPlayer.hands[activeHandIndex].cards[0]) === getCardValue(userPlayer.hands[activeHandIndex].cards[1]) && userPlayer.bankroll >= userPlayer.hands[activeHandIndex].bet;
+            let canSplit = false;
+            if (userPlayer && userPlayer.isUser && gamePhase === 'playing') {
+                const hand = userPlayer.hands[activeHandIndex];
+                if (hand && hand.cards.length === 2 && userPlayer.bankroll >= hand.bet) {
+                    if (getCardValue(hand.cards[0]) === getCardValue(hand.cards[1])) {
+                        canSplit = true;
+                    }
+                }
+            }
             splitButton.style.display = canSplit ? 'block' : 'none';
         }
 
