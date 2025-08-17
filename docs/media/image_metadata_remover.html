@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Metadata Remover</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exifreader@4.21.0/dist/exif-reader.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .custom-file-upload {
+            border: 2px dashed #cbd5e1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            cursor: pointer;
+            text-align: center;
+            border-radius: 0.5rem;
+            transition: background-color 0.3s, border-color 0.3s;
+            height: auto; /* Adjusted height */
+        }
+        .custom-file-upload:hover, .dragover {
+            background-color: #f1f5f9;
+            border-color: #94a3b8;
+        }
+        .image-card {
+            border: 2px solid transparent;
+            transition: border-color 0.3s;
+            display: flex;
+            flex-direction: column;
+            position: relative; /* Needed for positioning the remove button */
+            width: calc(50% - 0.5rem); /* Flexbox grid column width */
+        }
+        @media (min-width: 640px) {
+            .image-card { width: calc(33.333% - 0.667rem); }
+        }
+        @media (min-width: 768px) {
+            .image-card { width: calc(25% - 0.75rem); }
+        }
+
+        .image-card.selected {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.4);
+        }
+        .tooltip-container .tooltip {
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .tooltip-container:hover .tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+        .remove-btn {
+            position: absolute;
+            top: 0.25rem;
+            right: 0.25rem;
+            background-color: rgba(0,0,0,0.5);
+            color: white;
+            border-radius: 9999px;
+            width: 1.5rem;
+            height: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.2s;
+            cursor: pointer;
+        }
+        .image-card:hover .remove-btn {
+            opacity: 1;
+        }
+        .main-dragover {
+            outline: 2px dashed #3b82f6;
+            outline-offset: -1rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 min-h-screen flex items-start justify-center p-4">
+
+    <div class="w-full max-w-6xl mx-auto bg-white rounded-xl shadow-lg p-6 md:p-8">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900">Image Metadata Remover</h1>
+            <p class="text-gray-600 mt-2">View and erase metadata from your images.</p>
+        </div>
+
+        <div id="upload-container">
+            <label for="file-upload" class="custom-file-upload w-full">
+                <svg class="mx-auto h-16 w-16 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                <span class="mt-4 block text-lg font-medium text-gray-600">Click or Drag & Drop Images Here</span>
+                <span class="mt-1 block text-sm text-gray-500">Supports JPG, PNG, HEIC, etc.</span>
+            </label>
+            <input id="file-upload" type="file" class="hidden" accept="image/*,.heic,.heif" multiple>
+            <div class="mt-6 text-left text-gray-700 bg-gray-50 p-4 rounded-lg">
+                <h3 class="font-semibold text-lg mb-2">Features:</h3>
+                <ul class="list-disc list-inside space-y-1 text-sm">
+                    <li>Supports JPEG, PNG, and HEIC/HEIF formats.</li>
+                    <li>View all readable image metadata (EXIF, etc.).</li>
+                    <li>Erase all metadata with a single click to protect your privacy.</li>
+                    <li>Download cleaned images in different formats (JPEG, PNG).</li>
+                    <li>Optionally add noise to destroy hidden data like invisible watermarks.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div id="main-content" class="hidden grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+            <div>
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-semibold text-gray-800">Uploaded Images</h2>
+                    <label for="add-more-files" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition cursor-pointer text-sm">
+                        Add Image(s)
+                    </label>
+                    <input id="add-more-files" type="file" class="hidden" accept="image/*,.heic,.heif" multiple>
+                </div>
+                <!-- Replaced Grid with Flexbox for robust item removal behavior -->
+                <div id="image-gallery" class="flex flex-wrap gap-4 bg-gray-50 p-4 rounded-lg border h-[500px] overflow-y-auto content-start"></div>
+            </div>
+
+            <div class="flex flex-col">
+                <div id="global-actions" class="flex items-center gap-4 mb-4">
+                    <button id="download-zip-btn" class="flex-1 bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                        Download All as ZIP
+                    </button>
+                    <button id="reset-btn" class="flex-1 bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition text-sm">
+                        Start Over
+                    </button>
+                </div>
+                <h2 class="text-2xl font-semibold text-gray-800 mb-2">Image Details</h2>
+                <div id="size-info" class="p-4 bg-gray-100 rounded-lg mb-4 text-center">
+                    <p class="text-gray-500">Select an image to see details.</p>
+                </div>
+                <div id="metadata-actions" class="mb-4"></div>
+                <h3 class="text-xl font-semibold text-gray-800 mb-2">Metadata</h3>
+                <div id="metadata-display" class="bg-gray-50 border border-gray-200 rounded-lg p-4 flex-grow overflow-y-auto text-sm">
+                    <p class="text-gray-500">Metadata will appear here.</p>
+                </div>
+            </div>
+        </div>
+        <div id="message-box" class="mt-4 text-center font-medium hidden"></div>
+    </div>
+    
+    <!-- Confirmation Modal -->
+    <div id="confirmation-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center hidden">
+        <div class="p-8 border w-96 shadow-lg rounded-md bg-white">
+            <div class="text-center">
+                <h3 class="text-2xl font-bold text-gray-900">Are you sure?</h3>
+                <p class="text-sm text-gray-500 mt-2">This will remove all uploaded images. This action cannot be undone.</p>
+                <div class="flex justify-center mt-6 space-x-4">
+                    <button id="confirm-reset-btn" class="px-6 py-2 bg-red-600 text-white text-base font-medium rounded-md shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+                        Yes, Start Over
+                    </button>
+                    <button id="cancel-reset-btn" class="px-6 py-2 bg-gray-200 text-gray-800 text-base font-medium rounded-md shadow-sm hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Full-page Drag & Drop Overlay -->
+    <div id="drag-overlay" class="fixed inset-0 bg-blue-500 bg-opacity-20 border-4 border-dashed border-blue-600 rounded-lg flex items-center justify-center hidden pointer-events-none">
+        <div class="text-center text-blue-800 font-bold text-2xl bg-white p-4 rounded-lg shadow-xl">
+            Drop Files Anywhere to Upload
+        </div>
+    </div>
+
+
+    <script>
+        window.onload = () => {
+            const fileUpload = document.getElementById('file-upload');
+            const addMoreFilesInput = document.getElementById('add-more-files');
+            const uploadContainer = document.getElementById('upload-container');
+            const uploadLabel = uploadContainer.querySelector('label');
+            const mainContent = document.getElementById('main-content');
+            const imageGallery = document.getElementById('image-gallery');
+            const sizeInfo = document.getElementById('size-info');
+            const metadataDisplay = document.getElementById('metadata-display');
+            const metadataActions = document.getElementById('metadata-actions');
+            const downloadZipBtn = document.getElementById('download-zip-btn');
+            const resetBtn = document.getElementById('reset-btn');
+            const messageBox = document.getElementById('message-box');
+            const confirmationModal = document.getElementById('confirmation-modal');
+            const confirmResetBtn = document.getElementById('confirm-reset-btn');
+            const cancelResetBtn = document.getElementById('cancel-reset-btn');
+            const dragOverlay = document.getElementById('drag-overlay');
+
+            let uploadedFiles = [];
+            let selectedFileId = null;
+            let dragCounter = 0;
+
+            // --- Event Listeners ---
+            fileUpload.addEventListener('change', (e) => handleInitialImageUpload(e.target.files));
+            addMoreFilesInput.addEventListener('change', (e) => handleAddMoreImages(e.target.files));
+            downloadZipBtn.addEventListener('click', downloadAllAsZip);
+            
+            resetBtn.addEventListener('click', () => {
+                confirmationModal.classList.remove('hidden');
+            });
+            confirmResetBtn.addEventListener('click', () => {
+                resetApp(true);
+                confirmationModal.classList.add('hidden');
+            });
+            cancelResetBtn.addEventListener('click', () => {
+                confirmationModal.classList.add('hidden');
+            });
+
+            // --- Drag and Drop Event Listeners ---
+            window.addEventListener('dragenter', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dragCounter++;
+                if (mainContent.classList.contains('hidden')) {
+                     uploadLabel.classList.add('dragover');
+                } else {
+                    dragOverlay.classList.remove('hidden');
+                }
+            });
+
+            window.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dragCounter--;
+                if (dragCounter === 0) {
+                    dragOverlay.classList.add('hidden');
+                    uploadLabel.classList.remove('dragover');
+                }
+            });
+
+            window.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            });
+
+            window.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dragCounter = 0;
+                dragOverlay.classList.add('hidden');
+                uploadLabel.classList.remove('dragover');
+
+                const files = e.dataTransfer.files;
+                if (mainContent.classList.contains('hidden')) {
+                    handleInitialImageUpload(files);
+                } else {
+                    handleAddMoreImages(files);
+                }
+            });
+
+
+            async function handleInitialImageUpload(files) {
+                if (!files || !files.length) return;
+                resetApp(false);
+                await processFiles(files);
+                uploadContainer.classList.add('hidden');
+                mainContent.classList.remove('hidden');
+            }
+
+            async function handleAddMoreImages(files) {
+                if (!files || !files.length) return;
+                await processFiles(files);
+                addMoreFilesInput.value = ''; // Reset input to allow re-adding same files
+            }
+
+            async function processFiles(files) {
+                showMessage('Processing files...', 'info');
+                const fileProcessingPromises = Array.from(files).map(async (file, index) => {
+                    const fileType = file.type.toLowerCase();
+                    const fileName = file.name.toLowerCase();
+                    if (fileType === 'image/heic' || fileType === 'image/heif' || fileName.endsWith('.heic') || fileName.endsWith('.heif')) {
+                        try {
+                            const conversionResult = await heic2any({ blob: file, toType: "image/jpeg" });
+                            const convertedBlob = Array.isArray(conversionResult) ? conversionResult[0] : conversionResult;
+                            const newName = file.name.replace(/\.(heic|heif)$/i, '.jpeg');
+                            return { id: uploadedFiles.length + index, file: new File([convertedBlob], newName, { type: 'image/jpeg' }), name: newName, cleanedBlob: null };
+                        } catch (error) {
+                            console.error("HEIC conversion failed:", error);
+                            showMessage(`Failed to convert ${file.name}.`, 'error');
+                            return null;
+                        }
+                    }
+                    return { id: uploadedFiles.length + index, file: file, name: file.name, cleanedBlob: null };
+                });
+
+                const newFiles = (await Promise.all(fileProcessingPromises)).filter(f => f !== null);
+                uploadedFiles.push(...newFiles);
+                
+                const creationPromises = newFiles.map(createImageCard);
+                await Promise.all(creationPromises);
+
+                if (selectedFileId === null && uploadedFiles.length > 0) {
+                    const firstCard = document.querySelector('.image-card');
+                    if (firstCard) firstCard.click();
+                }
+                messageBox.classList.add('hidden');
+            }
+
+            function createImageCard(fileObj) {
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const card = document.createElement('div');
+                        card.className = 'image-card rounded-lg cursor-pointer overflow-hidden';
+                        card.dataset.fileId = fileObj.id;
+                        card.innerHTML = `
+                            <img src="${e.target.result}" alt="${fileObj.name}" class="w-full h-24 object-cover">
+                            <p class="text-xs p-2 bg-gray-100 h-12 flex items-center justify-center text-center break-words" title="${fileObj.name}">${fileObj.name}</p>
+                            <div class="remove-btn" title="Remove image">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </div>
+                        `;
+                        card.addEventListener('click', () => handleImageSelection(fileObj.id));
+                        card.querySelector('.remove-btn').addEventListener('click', (event) => {
+                            event.stopPropagation();
+                            removeImage(fileObj.id);
+                        });
+                        imageGallery.appendChild(card);
+                        resolve();
+                    };
+                    reader.readAsDataURL(fileObj.file);
+                });
+            }
+            
+            function removeImage(fileId) {
+                // Remove from array
+                uploadedFiles = uploadedFiles.filter(f => f.id !== fileId);
+                
+                // Remove from DOM
+                const cardToRemove = document.querySelector(`[data-file-id='${fileId}']`);
+                if (cardToRemove) {
+                    cardToRemove.remove();
+                }
+
+                // If the removed image was the selected one, clear the details panel
+                if (selectedFileId === fileId) {
+                    selectedFileId = null;
+                    sizeInfo.innerHTML = `<p class="text-gray-500">Select an image to see details.</p>`;
+                    metadataDisplay.innerHTML = '<p class="text-gray-500">Metadata will appear here.</p>';
+                    metadataActions.innerHTML = '';
+                }
+
+                // If no images are left, go back to the upload screen
+                if (uploadedFiles.length === 0) {
+                    resetApp(true);
+                }
+            }
+
+
+            function handleImageSelection(fileId) {
+                selectedFileId = fileId;
+                document.querySelectorAll('.image-card').forEach(c => c.classList.remove('selected'));
+                document.querySelector(`[data-file-id='${fileId}']`).classList.add('selected');
+                const fileObj = uploadedFiles.find(f => f.id === fileId);
+                displayDetails(fileObj);
+            }
+
+            async function displayDetails(fileObj) {
+                metadataActions.innerHTML = '';
+                sizeInfo.innerHTML = `<p class="text-gray-500 animate-pulse">Calculating cleaned file size...</p>`;
+                metadataDisplay.innerHTML = `<p class="text-gray-500 animate-pulse">Reading metadata...</p>`;
+                
+                const addNoise = document.getElementById('add-noise-toggle')?.checked || false;
+                const cleanedBlobPromise = createCleanedImageBlob(fileObj.file, null, addNoise);
+                const tagsPromise = ExifReader.load(fileObj.file).catch(() => ({}));
+
+                const [cleanedBlob, tags] = await Promise.all([cleanedBlobPromise, tagsPromise]);
+                fileObj.cleanedBlob = cleanedBlob;
+
+                const originalSize = fileObj.file.size;
+                const cleanedSize = cleanedBlob.size;
+                const savings = originalSize > 0 ? 100 * (originalSize - cleanedSize) / originalSize : 0;
+                const savingsColor = savings > 1 ? 'text-green-600' : (savings < 0 ? 'text-red-600' : 'text-gray-600');
+                
+                sizeInfo.innerHTML = `
+                    <div class="flex justify-around items-center text-sm">
+                        <div><span class="font-semibold">Original:</span> ${formatBytes(originalSize)}</div>
+                        <div><span class="font-semibold">Cleaned:</span> ${formatBytes(cleanedSize)}</div>
+                        <div class="flex items-center gap-1">
+                            <span class="font-semibold ${savingsColor}">Savings: ${savings.toFixed(2)}%</span>
+                            <div class="relative group tooltip-container">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <div class="tooltip absolute bottom-full mb-2 w-64 bg-gray-800 text-white text-xs rounded py-1 px-2 pointer-events-none">
+                                    For highly optimized images, the new file may be slightly larger after metadata is removed due to differences in browser compression.
+                                    <svg class="absolute text-gray-800 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255" xml:space="preserve"><polygon class="fill-current" points="0,0 127.5,127.5 255,0"/></svg>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                delete tags['MakerNote'];
+                renderMetadataTable(tags);
+
+                renderDownloadOptions(fileObj);
+            }
+            
+            function renderDownloadOptions(fileObj) {
+                metadataActions.innerHTML = `
+                    <div class="flex items-center gap-2 mb-2">
+                        <label for="format-select" class="text-sm font-medium">Download as:</label>
+                        <select id="format-select" class="flex-1 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2">
+                            <option value="original">Same as Original</option>
+                            <option value="jpeg">JPEG</option>
+                            <option value="png">PNG</option>
+                        </select>
+                        <button id="download-selected-btn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition">Download</button>
+                    </div>
+                    <div class="flex items-center justify-center gap-1 text-sm">
+                        <label for="add-noise-toggle" class="font-medium text-gray-700">Add Noise to Image:</label>
+                        <input type="checkbox" id="add-noise-toggle" class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                        <div class="relative group tooltip-container">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <div class="tooltip absolute bottom-full mb-2 w-64 bg-gray-800 text-white text-xs rounded py-1 px-2 pointer-events-none">
+                                This adds subtle noise to the image, which can help destroy hidden data like invisible watermarks (steganography).
+                                <svg class="absolute text-gray-800 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255" xml:space="preserve"><polygon class="fill-current" points="0,0 127.5,127.5 255,0"/></svg>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                document.getElementById('download-selected-btn').addEventListener('click', () => {
+                    const format = document.getElementById('format-select').value;
+                    const addNoise = document.getElementById('add-noise-toggle').checked;
+                    
+                    let mimeType;
+                    let newExtension;
+
+                    if (format === 'original') {
+                        mimeType = fileObj.file.type;
+                        newExtension = fileObj.name.split('.').pop() || 'jpeg';
+                    } else {
+                        mimeType = `image/${format}`;
+                        newExtension = format;
+                    }
+
+                    const baseName = fileObj.name.substring(0, fileObj.name.lastIndexOf('.')) || fileObj.name;
+                    const newFileName = `${baseName}.${newExtension}`;
+
+                    createCleanedImageBlob(fileObj.file, mimeType, addNoise).then(blob => {
+                        downloadBlob(blob, newFileName);
+                    });
+                });
+            }
+
+            function renderMetadataTable(tags) {
+                if (Object.keys(tags).length === 0) {
+                    metadataDisplay.innerHTML = '<p class="text-gray-500">No readable metadata found.</p>';
+                } else {
+                    let tableHtml = '<table class="w-full text-left table-auto">';
+                    tableHtml += '<thead class="bg-gray-100"><tr><th class="px-4 py-2 font-semibold">Tag</th><th class="px-4 py-2 font-semibold">Value</th></tr></thead><tbody>';
+                    for (const tagName in tags) {
+                        if (tags.hasOwnProperty(tagName)) {
+                            tableHtml += `<tr class="border-b border-gray-200"><td class="px-4 py-2 font-mono text-xs">${tagName}</td><td class="px-4 py-2">${tags[tagName].description}</td></tr>`;
+                        }
+                    }
+                    tableHtml += '</tbody></table>';
+                    metadataDisplay.innerHTML = tableHtml;
+                }
+            }
+
+            function createCleanedImageBlob(file, type, addNoise = false) {
+                const mimeType = type || file.type;
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const image = new Image();
+                        image.onload = () => {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = image.width;
+                            canvas.height = image.height;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(image, 0, 0);
+
+                            if (addNoise) {
+                                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                                const data = imageData.data;
+                                for (let i = 0; i < data.length; i += 4) {
+                                    // Add a random value between -5 and 5 to each color channel
+                                    const noise = Math.floor(Math.random() * 11) - 5;
+                                    data[i] = Math.max(0, Math.min(255, data[i] + noise));     // Red
+                                    data[i + 1] = Math.max(0, Math.min(255, data[i + 1] + noise)); // Green
+                                    data[i + 2] = Math.max(0, Math.min(255, data[i + 2] + noise)); // Blue
+                                }
+                                ctx.putImageData(imageData, 0, 0);
+                            }
+
+                            canvas.toBlob(blob => resolve(blob), mimeType, 0.95);
+                        };
+                        image.onerror = reject;
+                        image.src = e.target.result;
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            async function downloadAllAsZip() {
+                if (uploadedFiles.length === 0) return;
+                
+                const formatSelect = document.getElementById('format-select');
+                const format = formatSelect ? formatSelect.value : 'original';
+
+                const zip = new JSZip();
+                downloadZipBtn.disabled = true;
+                downloadZipBtn.textContent = 'Zipping...';
+                showMessage('Preparing your ZIP file...', 'info');
+                try {
+                    const addNoise = document.getElementById('add-noise-toggle')?.checked || false;
+                    for (const fileObj of uploadedFiles) {
+                        let mimeType;
+                        let newExtension;
+
+                        if (format === 'original') {
+                            mimeType = fileObj.file.type;
+                            newExtension = fileObj.name.split('.').pop() || 'jpeg';
+                        } else {
+                            mimeType = `image/${format}`;
+                            newExtension = format;
+                        }
+                        
+                        const blob = await createCleanedImageBlob(fileObj.file, mimeType, addNoise);
+                        const baseName = fileObj.name.substring(0, fileObj.name.lastIndexOf('.')) || fileObj.name;
+                        const newFileName = `${baseName}.${newExtension}`;
+                        zip.file(newFileName, blob);
+                    }
+                    const content = await zip.generateAsync({ type: "blob" });
+                    downloadBlob(content, 'cleaned_images.zip');
+                    showMessage('ZIP download started!', 'success');
+                } catch (error) {
+                    showMessage('Could not create ZIP file.', 'error');
+                } finally {
+                    downloadZipBtn.disabled = false;
+                    downloadZipBtn.textContent = 'Download All Cleaned as ZIP';
+                }
+            }
+
+            function resetApp(fullReset = true) {
+                if (fullReset) {
+                    fileUpload.value = '';
+                    uploadedFiles = [];
+                    selectedFileId = null;
+                    imageGallery.innerHTML = '';
+                    mainContent.classList.add('hidden');
+                    uploadContainer.classList.remove('hidden');
+                }
+                sizeInfo.innerHTML = `<p class="text-gray-500">Select an image to see details.</p>`;
+                metadataDisplay.innerHTML = '<p class="text-gray-500">Metadata will appear here.</p>';
+                metadataActions.innerHTML = '';
+                messageBox.classList.add('hidden');
+            }
+
+            function showMessage(message, type = 'success') {
+                const colors = { success: 'text-green-600 bg-green-100', error: 'text-red-600 bg-red-100', info: 'text-blue-600 bg-blue-100' };
+                messageBox.textContent = message;
+                messageBox.className = `p-3 rounded-lg mt-4 text-center font-medium ${colors[type] || colors.info}`;
+                messageBox.classList.remove('hidden');
+                setTimeout(() => { messageBox.classList.add('hidden'); }, 4000);
+            }
+
+            function downloadBlob(blob, filename) {
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(link.href);
+            }
+
+            function formatBytes(bytes, decimals = 2) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const dm = decimals < 0 ? 0 : decimals;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+            }
+        };
+    </script>
+</body>
+</html>
