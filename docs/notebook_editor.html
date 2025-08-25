@@ -132,7 +132,7 @@
         .theme-dark .markdown-content :not(pre) > code { background-color: #4b5563; color: #f472b6; } /* gray-600, pink-400 */
 
 
-        /* General layout styles (unaffected by theme) */
+        /* General layout styles */
         .notebook-cell {
             border: 1px solid;
             border-radius: 0.5rem;
@@ -149,66 +149,66 @@
         .add-cell-bar { text-align: center; margin: 0.5rem 0; position: relative; }
         .add-cell-bar hr { border-top: 1px dashed #ccc; }
         .add-cell-bar .buttons { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 0 10px; display: flex; gap: 1rem; background-color: #f9fafb;}
+
+        /* Raw View Styles */
+        #raw-view-container {
+            width: 40%;
+            height: 100vh;
+            position: sticky;
+            top: 0;
+        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
 
-    <div class="container mx-auto max-w-4xl px-4 py-8">
-        
-        <header class="text-center mb-8 relative">
-            <h1 class="text-4xl font-bold text-gray-900">Jupyter Notebook Editor</h1>
-            <p class="text-lg text-gray-600 mt-2">Upload, view, edit, or create a new notebook from scratch.</p>
-            <button id="theme-toggle" class="absolute top-0 right-0 p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" title="Toggle content theme">
-                <!-- Sun Icon -->
-                <svg id="theme-icon-light" class="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-                <!-- Moon Icon -->
-                <svg id="theme-icon-dark" class="h-6 w-6 text-gray-700 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                </svg>
-            </button>
-        </header>
-
-        <!-- Controls Section (always light) -->
-        <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200 mb-8">
-            <div class="flex flex-col sm:flex-row items-center justify-between sm:space-x-4 space-y-4 sm:space-y-0">
-                <div class="flex items-center space-x-2">
-                    <button id="new-btn" title="Create a new blank notebook" class="px-4 py-2 text-sm font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full whitespace-nowrap">
-                        New
-                    </button>
-                    <label for="notebook-upload" title="Upload an existing .ipynb file" class="px-4 py-2 text-sm font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full whitespace-nowrap cursor-pointer">
-                        Upload
-                    </label>
-                    <input type="file" id="notebook-upload" accept=".ipynb" class="hidden"/>
-                </div>
-                <button id="download-btn" title="Download the current notebook" disabled class="px-4 py-2 text-sm font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full whitespace-nowrap opacity-50 cursor-not-allowed">
-                    Download
+<div class="flex">
+    <div id="main-editor-panel" class="w-full transition-all duration-300">
+        <div class="container mx-auto max-w-4xl px-4 py-8">
+            <header class="text-center mb-8 relative">
+                <h1 class="text-4xl font-bold text-gray-900">Jupyter Notebook Editor</h1>
+                <p class="text-lg text-gray-600 mt-2">Upload, view, edit, or create a new notebook from scratch.</p>
+                <button id="theme-toggle" class="absolute top-0 right-0 p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" title="Toggle content theme">
+                    <svg id="theme-icon-light" class="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                    <svg id="theme-icon-dark" class="h-6 w-6 text-gray-700 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
                 </button>
+            </header>
+
+            <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200 mb-8">
+                <div class="flex flex-col sm:flex-row items-center justify-between sm:space-x-4 space-y-4 sm:space-y-0">
+                    <div class="flex items-center space-x-2">
+                        <button id="new-btn" title="Create a new blank notebook" class="px-4 py-2 text-sm font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full whitespace-nowrap">New</button>
+                        <label for="notebook-upload" title="Upload an existing .ipynb file" class="px-4 py-2 text-sm font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full whitespace-nowrap cursor-pointer">Upload</label>
+                        <input type="file" id="notebook-upload" accept=".ipynb" class="hidden"/>
+                    </div>
+                     <div class="flex items-center space-x-2">
+                        <button id="view-raw-btn" title="View raw JSON" disabled class="px-4 py-2 text-sm font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full whitespace-nowrap opacity-50 cursor-not-allowed">View Raw</button>
+                        <button id="download-btn" title="Download the current notebook" disabled class="px-4 py-2 text-sm font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full whitespace-nowrap opacity-50 cursor-not-allowed">Download</button>
+                    </div>
+                </div>
+                <div id="error-message" class="text-red-500 text-sm mt-2"></div>
             </div>
-            <div id="error-message" class="text-red-500 text-sm mt-2"></div>
-        </div>
-        
-        <!-- Filename Editor -->
-        <div id="filename-container" class="mb-6 hidden">
-             <input type="text" id="filename-input" class="w-full text-2xl font-bold text-gray-800 bg-transparent focus:outline-none border-b-2 border-transparent focus:border-indigo-400 rounded-none px-1 py-1 transition-colors" />
-        </div>
-
-
-        <!-- Notebook Content Display Area -->
-        <main id="notebook-content">
-            <div id="placeholder-text" class="text-center text-gray-400 py-24">
-                <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <p class="mt-4 text-lg">Start or upload an Jupyter Notebook to get started.</p>
+            
+            <div id="filename-container" class="mb-6 hidden">
+                 <input type="text" id="filename-input" class="w-full text-2xl font-bold text-gray-800 bg-transparent focus:outline-none border-b-2 border-transparent focus:border-indigo-400 rounded-none px-1 py-1 transition-colors" />
             </div>
-        </main>
 
+            <main id="notebook-content">
+                <div id="placeholder-text" class="text-center text-gray-400 py-24">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    <p class="mt-4 text-lg">Start or upload an IPython notebook to get started.</p>
+                </div>
+            </main>
+        </div>
     </div>
+
+    <div id="raw-view-container" class="hidden bg-gray-800 text-gray-200 p-4 border-l border-gray-700">
+        <pre class="h-full overflow-auto text-sm"><code id="raw-view-code" class="language-json"></code></pre>
+    </div>
+</div>
 
     <script>
         // DOM Elements
+        const mainEditorPanel = document.getElementById('main-editor-panel');
         const fileInput = document.getElementById('notebook-upload');
         const contentArea = document.getElementById('notebook-content');
         const errorMessage = document.getElementById('error-message');
@@ -221,6 +221,9 @@
         const prismThemeDark = document.getElementById('prism-theme-dark');
         const filenameContainer = document.getElementById('filename-container');
         const filenameInput = document.getElementById('filename-input');
+        const rawViewContainer = document.getElementById('raw-view-container');
+        const rawViewCode = document.getElementById('raw-view-code');
+        const viewRawBtn = document.getElementById('view-raw-btn');
 
         // State
         let notebook = null;
@@ -262,18 +265,19 @@
         downloadBtn.addEventListener('click', handleFileDownload);
         newBtn.addEventListener('click', createNewNotebook);
         contentArea.addEventListener('click', handleCellActions);
+        viewRawBtn.addEventListener('click', toggleRawView);
 
         function createNewNotebook() {
             filenameInput.value = "Untitled Notebook";
             filenameContainer.classList.remove('hidden');
 
             notebook = {
-                cells: [{ cell_type: "code", execution_count: null, metadata: {}, outputs: [], source: "# Your first code cell!" }],
+                cells: [{ cell_type: "code", execution_count: null, metadata: {}, outputs: [], source: ["# Your first code cell!\n"] }],
                 metadata: { kernelspec: { display_name: "Python 3", language: "python", name: "python3" }, language_info: { name: "python" } },
                 nbformat: 4, nbformat_minor: 2
             };
             renderNotebook();
-            enableDownloadButton();
+            enableActionButtons();
         }
 
         function handleFileUpload(event) {
@@ -294,44 +298,62 @@
             reader.onload = (e) => {
                 try {
                     notebook = JSON.parse(e.target.result);
+                    // Standardize cell.source to be an array of strings ending in \n
                     if (notebook.cells && Array.isArray(notebook.cells)) {
                         notebook.cells.forEach(cell => {
-                            if (Array.isArray(cell.source)) {
-                                cell.source = cell.source.join('');
+                            const source = cell.source;
+                            if (typeof source === 'string') {
+                                const lines = source.split('\n');
+                                cell.source = lines.map((line, i) => i < lines.length - 1 ? line + '\n' : line);
+                            } else if (Array.isArray(source)) {
+                                // Ensure all lines in the array end with a newline
+                                cell.source = source.join('').split('\n').map((line, i, arr) => i < arr.length - 1 ? line + '\n' : line);
+                            } else {
+                                cell.source = [];
                             }
                         });
                     }
                     renderNotebook();
-                    enableDownloadButton();
-                } catch (error) { errorMessage.textContent = 'Error: Could not parse the notebook file.'; }
+                    enableActionButtons();
+                } catch (error) { 
+                    console.error("Parsing error:", error);
+                    errorMessage.textContent = 'Error: Could not parse the notebook file.'; 
+                }
             };
             reader.onerror = () => { errorMessage.textContent = 'Error: Could not read the file.'; };
             reader.readAsText(file);
         }
 
+        /**
+         * Prepares the notebook object for export.
+         * This involves saving any open editors and ensuring the 'source' property of each cell
+         * is in the correct format (an array of strings with newlines).
+         * @returns {object} A deep copy of the notebook, ready for serialization.
+         */
+        function getNotebookForExport() {
+            // First, ensure any open editor's content is saved into our internal notebook object.
+            document.querySelectorAll('.cell-editor').forEach(editor => {
+                if (editor.style.display !== 'none') {
+                    const index = parseInt(editor.dataset.index, 10);
+                    if (!isNaN(index)) {
+                        saveEditorContent(index, editor.value);
+                    }
+                }
+            });
+
+            // Create a deep copy for modification to avoid altering the live state.
+            const notebookToExport = JSON.parse(JSON.stringify(notebook));
+
+            // The internal format is already an array of strings with newlines,
+            // so no further conversion is needed for the standard .ipynb format.
+            return notebookToExport;
+        }
+
+
         function handleFileDownload() {
             if (!notebook) return;
-            
-            document.querySelectorAll('.cell-editor').forEach(editor => {
-                const index = parseInt(editor.dataset.index, 10);
-                if (!isNaN(index)) {
-                    notebook.cells[index].source = editor.value;
-                }
-            });
-
-            const notebookToDownload = JSON.parse(JSON.stringify(notebook));
-
-            notebookToDownload.cells.forEach(cell => {
-                if (typeof cell.source === 'string') {
-                    const lines = cell.source.split('\n');
-                    cell.source = lines.map((line, i) => {
-                        return i < lines.length - 1 ? line + '\n' : line;
-                    });
-                }
-            });
-            
+            const notebookToDownload = getNotebookForExport();
             const downloadName = (filenameInput.value || 'notebook') + '.ipynb';
-
             const blob = new Blob([JSON.stringify(notebookToDownload, null, 2)], { type: 'application/json' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
@@ -340,6 +362,49 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(a.href);
+        }
+
+        function updateRawView() {
+            if (!notebook || rawViewContainer.classList.contains('hidden')) return;
+            const notebookForView = getNotebookForExport();
+            // For raw view, joining the source array makes it more readable.
+            // This is for display only and doesn't affect the download format.
+            notebookForView.cells.forEach(cell => {
+                if(Array.isArray(cell.source)) {
+                    cell.source = cell.source.join('');
+                }
+            });
+            rawViewCode.textContent = JSON.stringify(notebookForView, null, 2);
+            Prism.highlightElement(rawViewCode);
+        }
+
+        function toggleRawView() {
+            const isHidden = rawViewContainer.classList.toggle('hidden');
+            if (isHidden) {
+                mainEditorPanel.classList.remove('w-3/5');
+                mainEditorPanel.classList.add('w-full');
+                viewRawBtn.textContent = 'View Raw';
+            } else {
+                mainEditorPanel.classList.remove('w-full');
+                mainEditorPanel.classList.add('w-3/5');
+                viewRawBtn.textContent = 'Hide Raw';
+                updateRawView();
+            }
+        }
+        
+        /**
+         * Saves the content from a textarea editor into the main notebook state object.
+         * The content is converted from a single string into an array of strings (lines),
+         * with each line ending in a newline character.
+         * @param {number} index - The index of the cell to save.
+         * @param {string} text - The text content from the editor.
+         */
+        function saveEditorContent(index, text) {
+             const lines = text.split('\n');
+             notebook.cells[index].source = lines.map((line, i) => {
+                // Add a newline to every line except the last one.
+                return i < lines.length - 1 ? line + '\n' : line;
+            });
         }
         
         function handleCellActions(e) {
@@ -350,29 +415,27 @@
 
             if (action === 'delete-cell') {
                 notebook.cells.splice(index, 1);
-                renderNotebook();
             } else if (action === 'add-code' || action === 'add-markdown') {
                 const cellType = action === 'add-code' ? 'code' : 'markdown';
-                const newCell = { cell_type: cellType, source: `# New ${cellType} cell`, metadata: {} };
+                const newCell = { cell_type: cellType, source: [`# New ${cellType} cell\n`], metadata: {} };
                 if (cellType === 'code') {
                     newCell.outputs = [];
                     newCell.execution_count = null;
                 }
                 notebook.cells.splice(index + 1, 0, newCell);
-                renderNotebook();
             } else if (action === 'edit-cell') {
                 toggleEditor(index, true);
+                return; // Avoid re-rendering immediately
             } else if (action === 'save-cell') {
                 const editor = contentArea.querySelector(`.cell-editor[data-index="${index}"]`);
-                notebook.cells[index].source = editor.value;
+                saveEditorContent(index, editor.value);
                 toggleEditor(index, false);
             } else if (action === 'move-cell-up' && index > 0) {
                 [notebook.cells[index], notebook.cells[index - 1]] = [notebook.cells[index - 1], notebook.cells[index]];
-                renderNotebook();
             } else if (action === 'move-cell-down' && index < notebook.cells.length - 1) {
                 [notebook.cells[index], notebook.cells[index + 1]] = [notebook.cells[index + 1], notebook.cells[index]];
-                renderNotebook();
             }
+            renderNotebook();
         }
 
         function toggleEditor(index, showEditor) {
@@ -388,7 +451,7 @@
             saveBtn.style.display = showEditor ? 'inline-block' : 'none';
 
             if (showEditor) {
-                editor.value = typeof notebook.cells[index].source === 'string' ? notebook.cells[index].source : '';
+                editor.value = Array.isArray(notebook.cells[index].source) ? notebook.cells[index].source.join('') : '';
                 editor.focus();
             } else {
                  renderNotebook();
@@ -407,14 +470,8 @@
                     <div class="notebook-cell" data-index="${index}">
                         <div class="cell-toolbar">
                             <span class="cell-type-label text-xs text-gray-500 font-mono mr-auto uppercase">${cell.cell_type}</span>
-                            
-                            <button data-action="move-cell-up" data-index="${index}" title="Move cell up" ${isFirst ? 'disabled' : ''}>
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
-                            </button>
-                            <button data-action="move-cell-down" data-index="${index}" title="Move cell down" ${isLast ? 'disabled' : ''}>
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                            </button>
-                            
+                            <button data-action="move-cell-up" data-index="${index}" title="Move cell up" ${isFirst ? 'disabled' : ''}><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg></button>
+                            <button data-action="move-cell-down" data-index="${index}" title="Move cell down" ${isLast ? 'disabled' : ''}><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></button>
                             <button data-action="edit-cell" data-index="${index}">Edit</button>
                             <button data-action="save-cell" data-index="${index}" style="display: none;">Save</button>
                             <button data-action="delete-cell" data-index="${index}">Delete</button>
@@ -434,7 +491,7 @@
                 `;
                 
                 const viewer = cellWrapper.querySelector('.cell-viewer');
-                const sourceText = typeof cell.source === 'string' ? cell.source : '';
+                const sourceText = Array.isArray(cell.source) ? cell.source.join('') : '';
 
                 if (cell.cell_type === 'markdown') {
                     viewer.className = 'cell-viewer markdown-content';
@@ -452,30 +509,28 @@
                 contentArea.appendChild(cellWrapper);
             });
             Prism.highlightAll();
+            updateRawView();
         }
 
         // Helper functions
         function resetState() {
-            contentArea.innerHTML = `
-                <div id="placeholder-text" class="text-center text-gray-400 py-24">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <p class="mt-4 text-lg">Start or upload an IPython notebook to get started.</p>
-                </div>
-            `;
+            contentArea.innerHTML = `<div id="placeholder-text" class="text-center text-gray-400 py-24"><svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg><p class="mt-4 text-lg">Start or upload an IPython notebook to get started.</p></div>`;
             errorMessage.textContent = '';
             notebook = null;
             filenameContainer.classList.add('hidden');
-            disableDownloadButton();
+            disableActionButtons();
         }
-        function disableDownloadButton() {
+        function disableActionButtons() {
             downloadBtn.disabled = true;
             downloadBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            viewRawBtn.disabled = true;
+            viewRawBtn.classList.add('opacity-50', 'cursor-not-allowed');
         }
-        function enableDownloadButton() {
+        function enableActionButtons() {
             downloadBtn.disabled = false;
             downloadBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            viewRawBtn.disabled = false;
+            viewRawBtn.classList.remove('opacity-50', 'cursor-not-allowed');
         }
     </script>
 </body>
