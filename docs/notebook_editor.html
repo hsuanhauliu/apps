@@ -4,11 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jupyter Notebook Editor</title>
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Marked.js for Markdown -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <!-- Prism.js for Code Syntax Highlighting -->
     <link id="prism-theme-light" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" />
     <link id="prism-theme-dark" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" disabled />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
@@ -179,6 +176,7 @@
                         <button id="new-btn" title="Create a new blank notebook" class="px-4 py-2 text-sm font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full whitespace-nowrap">New</button>
                         <label for="notebook-upload" title="Upload an existing .ipynb file" class="px-4 py-2 text-sm font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full whitespace-nowrap cursor-pointer">Upload</label>
                         <input type="file" id="notebook-upload" accept=".ipynb" class="hidden"/>
+                        <button id="paste-btn" title="Paste raw .ipynb JSON data" class="px-4 py-2 text-sm font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full whitespace-nowrap">Paste</button>
                     </div>
                      <div class="flex items-center space-x-2">
                         <button id="view-raw-btn" title="View raw JSON" disabled class="px-4 py-2 text-sm font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full whitespace-nowrap opacity-50 cursor-not-allowed">View Raw</button>
@@ -206,332 +204,382 @@
     </div>
 </div>
 
-    <script>
-        // DOM Elements
-        const mainEditorPanel = document.getElementById('main-editor-panel');
-        const fileInput = document.getElementById('notebook-upload');
-        const contentArea = document.getElementById('notebook-content');
-        const errorMessage = document.getElementById('error-message');
-        const downloadBtn = document.getElementById('download-btn');
-        const newBtn = document.getElementById('new-btn');
-        const themeToggle = document.getElementById('theme-toggle');
-        const themeIconLight = document.getElementById('theme-icon-light');
-        const themeIconDark = document.getElementById('theme-icon-dark');
-        const prismThemeLight = document.getElementById('prism-theme-light');
-        const prismThemeDark = document.getElementById('prism-theme-dark');
-        const filenameContainer = document.getElementById('filename-container');
-        const filenameInput = document.getElementById('filename-input');
-        const rawViewContainer = document.getElementById('raw-view-container');
-        const rawViewCode = document.getElementById('raw-view-code');
-        const viewRawBtn = document.getElementById('view-raw-btn');
+<div id="paste-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center hidden z-50">
+    <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl">
+        <h2 class="text-xl font-bold mb-4">Paste Notebook JSON</h2>
+        <p class="text-gray-600 mb-4">Paste the entire raw JSON content of an <code>.ipynb</code> file below.</p>
+        <textarea id="paste-textarea" class="w-full h-64 p-2 border border-gray-300 rounded-md font-mono text-sm" placeholder='{ "cells": [...], "metadata": {...}, ... }'></textarea>
+        <div class="mt-4 flex justify-end space-x-2">
+            <button id="paste-cancel-btn" class="px-4 py-2 text-sm font-semibold bg-gray-200 text-gray-800 hover:bg-gray-300 rounded-md">Cancel</button>
+            <button id="paste-submit-btn" class="px-4 py-2 text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 rounded-md">Load Notebook</button>
+        </div>
+    </div>
+</div>
 
-        // State
-        let notebook = null;
-        
-        // --- THEME LOGIC ---
-        function applyTheme(theme) {
-            if (theme === 'dark') {
-                contentArea.classList.remove('theme-light');
-                contentArea.classList.add('theme-dark');
-                themeIconLight.classList.add('hidden');
-                themeIconDark.classList.remove('hidden');
-                prismThemeLight.disabled = true;
-                prismThemeDark.disabled = false;
-            } else { // light
-                contentArea.classList.remove('theme-dark');
-                contentArea.classList.add('theme-light');
-                themeIconLight.classList.remove('hidden');
-                themeIconDark.classList.add('hidden');
-                prismThemeLight.disabled = false;
-                prismThemeDark.disabled = true;
-            }
+<script>
+    // DOM Elements
+    const mainEditorPanel = document.getElementById('main-editor-panel');
+    const fileInput = document.getElementById('notebook-upload');
+    const contentArea = document.getElementById('notebook-content');
+    const errorMessage = document.getElementById('error-message');
+    const downloadBtn = document.getElementById('download-btn');
+    const newBtn = document.getElementById('new-btn');
+    const pasteBtn = document.getElementById('paste-btn');
+    const themeToggle = document.getElementById('theme-toggle');
+    const themeIconLight = document.getElementById('theme-icon-light');
+    const themeIconDark = document.getElementById('theme-icon-dark');
+    const prismThemeLight = document.getElementById('prism-theme-light');
+    const prismThemeDark = document.getElementById('prism-theme-dark');
+    const filenameContainer = document.getElementById('filename-container');
+    const filenameInput = document.getElementById('filename-input');
+    const rawViewContainer = document.getElementById('raw-view-container');
+    const rawViewCode = document.getElementById('raw-view-code');
+    const viewRawBtn = document.getElementById('view-raw-btn');
+    const pasteModal = document.getElementById('paste-modal');
+    const pasteTextarea = document.getElementById('paste-textarea');
+    const pasteCancelBtn = document.getElementById('paste-cancel-btn');
+    const pasteSubmitBtn = document.getElementById('paste-submit-btn');
+
+    // State
+    let notebook = null;
+    
+    // --- THEME LOGIC ---
+    function applyTheme(theme) {
+        if (theme === 'dark') {
+            contentArea.classList.remove('theme-light');
+            contentArea.classList.add('theme-dark');
+            themeIconLight.classList.add('hidden');
+            themeIconDark.classList.remove('hidden');
+            prismThemeLight.disabled = true;
+            prismThemeDark.disabled = false;
+        } else { // light
+            contentArea.classList.remove('theme-dark');
+            contentArea.classList.add('theme-light');
+            themeIconLight.classList.remove('hidden');
+            themeIconDark.classList.add('hidden');
+            prismThemeLight.disabled = false;
+            prismThemeDark.disabled = true;
+        }
+    }
+
+    function toggleTheme() {
+        const currentTheme = localStorage.getItem('content-theme') || 'dark';
+        const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+        localStorage.setItem('content-theme', newTheme);
+        applyTheme(newTheme);
+    }
+
+    const savedTheme = localStorage.getItem('content-theme') || 'dark';
+    applyTheme(savedTheme);
+
+    // Event Listeners
+    themeToggle.addEventListener('click', toggleTheme);
+    fileInput.addEventListener('change', handleFileUpload);
+    downloadBtn.addEventListener('click', handleFileDownload);
+    newBtn.addEventListener('click', createNewNotebook);
+    pasteBtn.addEventListener('click', openPasteModal);
+    pasteCancelBtn.addEventListener('click', closePasteModal);
+    pasteSubmitBtn.addEventListener('click', handlePasteSubmit);
+    contentArea.addEventListener('click', handleCellActions);
+    viewRawBtn.addEventListener('click', toggleRawView);
+
+    function createNewNotebook() {
+        notebook = {
+            cells: [{ cell_type: "code", execution_count: null, metadata: {}, outputs: [], source: ["# Your first code cell!\n"] }],
+            metadata: { kernelspec: { display_name: "Python 3", language: "python", name: "python3" }, language_info: { name: "python" } },
+            nbformat: 4, nbformat_minor: 2
+        };
+        loadAndRenderNotebook(notebook, "Untitled Notebook");
+    }
+
+    function handleFileUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        resetState();
+
+        if (!file.name.endsWith('.ipynb')) {
+            errorMessage.textContent = 'Error: Please upload a valid .ipynb file.';
+            fileInput.value = ''; // Reset file input
+            return;
         }
 
-        function toggleTheme() {
-            const currentTheme = localStorage.getItem('content-theme') || 'dark';
-            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-            localStorage.setItem('content-theme', newTheme);
-            applyTheme(newTheme);
-        }
-
-        const savedTheme = localStorage.getItem('content-theme') || 'dark';
-        applyTheme(savedTheme);
-
-        themeToggle.addEventListener('click', toggleTheme);
-        // --- END THEME LOGIC ---
-
-        // Event Listeners
-        fileInput.addEventListener('change', handleFileUpload);
-        downloadBtn.addEventListener('click', handleFileDownload);
-        newBtn.addEventListener('click', createNewNotebook);
-        contentArea.addEventListener('click', handleCellActions);
-        viewRawBtn.addEventListener('click', toggleRawView);
-
-        function createNewNotebook() {
-            filenameInput.value = "Untitled Notebook";
-            filenameContainer.classList.remove('hidden');
-
-            notebook = {
-                cells: [{ cell_type: "code", execution_count: null, metadata: {}, outputs: [], source: ["# Your first code cell!\n"] }],
-                metadata: { kernelspec: { display_name: "Python 3", language: "python", name: "python3" }, language_info: { name: "python" } },
-                nbformat: 4, nbformat_minor: 2
-            };
-            renderNotebook();
-            enableActionButtons();
-        }
-
-        function handleFileUpload(event) {
-            const file = event.target.files[0];
-            resetState();
-            if (!file) return;
-            
-            if (!file.name.endsWith('.ipynb')) {
-                errorMessage.textContent = 'Error: Please upload a valid .ipynb file.';
-                fileInput.value = ''; // Reset file input
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            let parsedNotebook;
+            try {
+                parsedNotebook = JSON.parse(e.target.result);
+            } catch (error) {
+                console.error("Parsing error:", error);
+                errorMessage.textContent = 'Error: Could not parse the notebook file.';
                 return;
             }
+            loadAndRenderNotebook(parsedNotebook, file.name);
+        };
+        reader.onerror = () => { errorMessage.textContent = 'Error: Could not read the file.'; };
+        reader.readAsText(file);
+    }
+    
+    function openPasteModal() {
+        pasteTextarea.value = '';
+        errorMessage.textContent = '';
+        pasteModal.classList.remove('hidden');
+        pasteTextarea.focus();
+    }
 
-            filenameInput.value = file.name.replace('.ipynb', '');
+    function closePasteModal() {
+        pasteModal.classList.add('hidden');
+    }
+
+    function handlePasteSubmit() {
+        const rawJson = pasteTextarea.value;
+        closePasteModal();
+        if (!rawJson.trim()) return;
+
+        resetState();
+        let parsedNotebook;
+        try {
+            parsedNotebook = JSON.parse(rawJson);
+        } catch (error) {
+            console.error("Paste parsing error:", error);
+            errorMessage.textContent = 'Error: Pasted text is not valid JSON.';
+            return;
+        }
+        loadAndRenderNotebook(parsedNotebook, "Pasted Notebook");
+    }
+    
+    function loadAndRenderNotebook(notebookData, fileName) {
+        try {
+            if (!notebookData || !Array.isArray(notebookData.cells)) {
+                throw new Error("Invalid notebook format: 'cells' array not found.");
+            }
+            // Standardize cell.source to be an array of strings ending in \n
+            notebookData.cells.forEach(cell => {
+                const source = cell.source;
+                if (typeof source === 'string') {
+                    const lines = source.split('\n');
+                    cell.source = lines.map((line, i) => i < lines.length - 1 ? line + '\n' : line);
+                } else if (Array.isArray(source)) {
+                    cell.source = source.join('').split('\n').map((line, i, arr) => i < arr.length - 1 ? line + '\n' : line);
+                } else {
+                    cell.source = [];
+                }
+            });
+            notebook = notebookData;
+            filenameInput.value = fileName.replace(/\.ipynb$/, '');
             filenameContainer.classList.remove('hidden');
-
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    notebook = JSON.parse(e.target.result);
-                    // Standardize cell.source to be an array of strings ending in \n
-                    if (notebook.cells && Array.isArray(notebook.cells)) {
-                        notebook.cells.forEach(cell => {
-                            const source = cell.source;
-                            if (typeof source === 'string') {
-                                const lines = source.split('\n');
-                                cell.source = lines.map((line, i) => i < lines.length - 1 ? line + '\n' : line);
-                            } else if (Array.isArray(source)) {
-                                // Ensure all lines in the array end with a newline
-                                cell.source = source.join('').split('\n').map((line, i, arr) => i < arr.length - 1 ? line + '\n' : line);
-                            } else {
-                                cell.source = [];
-                            }
-                        });
-                    }
-                    renderNotebook();
-                    enableActionButtons();
-                } catch (error) { 
-                    console.error("Parsing error:", error);
-                    errorMessage.textContent = 'Error: Could not parse the notebook file.'; 
-                }
-            };
-            reader.onerror = () => { errorMessage.textContent = 'Error: Could not read the file.'; };
-            reader.readAsText(file);
-        }
-
-        /**
-         * Prepares the notebook object for export.
-         * This involves saving any open editors and ensuring the 'source' property of each cell
-         * is in the correct format (an array of strings with newlines).
-         * @returns {object} A deep copy of the notebook, ready for serialization.
-         */
-        function getNotebookForExport() {
-            // First, ensure any open editor's content is saved into our internal notebook object.
-            document.querySelectorAll('.cell-editor').forEach(editor => {
-                if (editor.style.display !== 'none') {
-                    const index = parseInt(editor.dataset.index, 10);
-                    if (!isNaN(index)) {
-                        saveEditorContent(index, editor.value);
-                    }
-                }
-            });
-
-            // Create a deep copy for modification to avoid altering the live state.
-            const notebookToExport = JSON.parse(JSON.stringify(notebook));
-
-            // The internal format is already an array of strings with newlines,
-            // so no further conversion is needed for the standard .ipynb format.
-            return notebookToExport;
-        }
-
-
-        function handleFileDownload() {
-            if (!notebook) return;
-            const notebookToDownload = getNotebookForExport();
-            const downloadName = (filenameInput.value || 'notebook') + '.ipynb';
-            const blob = new Blob([JSON.stringify(notebookToDownload, null, 2)], { type: 'application/json' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = downloadName;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(a.href);
-        }
-
-        function updateRawView() {
-            if (!notebook || rawViewContainer.classList.contains('hidden')) return;
-            const notebookForView = getNotebookForExport();
-            // For raw view, joining the source array makes it more readable.
-            // This is for display only and doesn't affect the download format.
-            notebookForView.cells.forEach(cell => {
-                if(Array.isArray(cell.source)) {
-                    cell.source = cell.source.join('');
-                }
-            });
-            rawViewCode.textContent = JSON.stringify(notebookForView, null, 2);
-            Prism.highlightElement(rawViewCode);
-        }
-
-        function toggleRawView() {
-            const isHidden = rawViewContainer.classList.toggle('hidden');
-            if (isHidden) {
-                mainEditorPanel.classList.remove('w-3/5');
-                mainEditorPanel.classList.add('w-full');
-                viewRawBtn.textContent = 'View Raw';
-            } else {
-                mainEditorPanel.classList.remove('w-full');
-                mainEditorPanel.classList.add('w-3/5');
-                viewRawBtn.textContent = 'Hide Raw';
-                updateRawView();
-            }
-        }
-        
-        /**
-         * Saves the content from a textarea editor into the main notebook state object.
-         * The content is converted from a single string into an array of strings (lines),
-         * with each line ending in a newline character.
-         * @param {number} index - The index of the cell to save.
-         * @param {string} text - The text content from the editor.
-         */
-        function saveEditorContent(index, text) {
-             const lines = text.split('\n');
-             notebook.cells[index].source = lines.map((line, i) => {
-                // Add a newline to every line except the last one.
-                return i < lines.length - 1 ? line + '\n' : line;
-            });
-        }
-        
-        function handleCellActions(e) {
-            const target = e.target.closest('button');
-            if (!target) return;
-            const action = target.dataset.action;
-            const index = parseInt(target.dataset.index, 10);
-
-            if (action === 'delete-cell') {
-                notebook.cells.splice(index, 1);
-            } else if (action === 'add-code' || action === 'add-markdown') {
-                const cellType = action === 'add-code' ? 'code' : 'markdown';
-                const newCell = { cell_type: cellType, source: [`# New ${cellType} cell\n`], metadata: {} };
-                if (cellType === 'code') {
-                    newCell.outputs = [];
-                    newCell.execution_count = null;
-                }
-                notebook.cells.splice(index + 1, 0, newCell);
-            } else if (action === 'edit-cell') {
-                toggleEditor(index, true);
-                return; // Avoid re-rendering immediately
-            } else if (action === 'save-cell') {
-                const editor = contentArea.querySelector(`.cell-editor[data-index="${index}"]`);
-                saveEditorContent(index, editor.value);
-                toggleEditor(index, false);
-            } else if (action === 'move-cell-up' && index > 0) {
-                [notebook.cells[index], notebook.cells[index - 1]] = [notebook.cells[index - 1], notebook.cells[index]];
-            } else if (action === 'move-cell-down' && index < notebook.cells.length - 1) {
-                [notebook.cells[index], notebook.cells[index + 1]] = [notebook.cells[index + 1], notebook.cells[index]];
-            }
             renderNotebook();
+            enableActionButtons();
+            errorMessage.textContent = '';
+        } catch (error) {
+            console.error("Notebook loading error:", error);
+            errorMessage.textContent = `Error: ${error.message}`;
+            resetState();
         }
+    }
 
-        function toggleEditor(index, showEditor) {
-            const cellElement = contentArea.querySelector(`.notebook-cell[data-index="${index}"]`);
-            const viewer = cellElement.querySelector('.cell-viewer');
-            const editor = cellElement.querySelector('.cell-editor');
-            const editBtn = cellElement.querySelector('button[data-action="edit-cell"]');
-            const saveBtn = cellElement.querySelector('button[data-action="save-cell"]');
-
-            viewer.style.display = showEditor ? 'none' : 'block';
-            editor.style.display = showEditor ? 'block' : 'none';
-            editBtn.style.display = showEditor ? 'none' : 'inline-block';
-            saveBtn.style.display = showEditor ? 'inline-block' : 'none';
-
-            if (showEditor) {
-                editor.value = Array.isArray(notebook.cells[index].source) ? notebook.cells[index].source.join('') : '';
-                editor.focus();
-            } else {
-                 renderNotebook();
-            }
-        }
-
-        function renderNotebook() {
-            contentArea.innerHTML = '';
-            if (!notebook || !notebook.cells) return;
-            notebook.cells.forEach((cell, index) => {
-                const isFirst = index === 0;
-                const isLast = index === notebook.cells.length - 1;
-
-                const cellWrapper = document.createElement('div');
-                cellWrapper.innerHTML = `
-                    <div class="notebook-cell" data-index="${index}">
-                        <div class="cell-toolbar">
-                            <span class="cell-type-label text-xs text-gray-500 font-mono mr-auto uppercase">${cell.cell_type}</span>
-                            <button data-action="move-cell-up" data-index="${index}" title="Move cell up" ${isFirst ? 'disabled' : ''}><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg></button>
-                            <button data-action="move-cell-down" data-index="${index}" title="Move cell down" ${isLast ? 'disabled' : ''}><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></button>
-                            <button data-action="edit-cell" data-index="${index}">Edit</button>
-                            <button data-action="save-cell" data-index="${index}" style="display: none;">Save</button>
-                            <button data-action="delete-cell" data-index="${index}">Delete</button>
-                        </div>
-                        <div class="cell-content">
-                            <div class="cell-viewer"></div>
-                            <textarea class="cell-editor" data-index="${index}" style="display: none;"></textarea>
-                        </div>
-                    </div>
-                    <div class="add-cell-bar">
-                        <hr/>
-                        <div class="buttons">
-                            <button class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold" data-action="add-code" data-index="${index}">+ Code</button>
-                            <button class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold" data-action="add-markdown" data-index="${index}">+ Markdown</button>
-                        </div>
-                    </div>
-                `;
-                
-                const viewer = cellWrapper.querySelector('.cell-viewer');
-                const sourceText = Array.isArray(cell.source) ? cell.source.join('') : '';
-
-                if (cell.cell_type === 'markdown') {
-                    viewer.className = 'cell-viewer markdown-content';
-                    viewer.innerHTML = marked.parse(sourceText);
-                } else if (cell.cell_type === 'code') {
-                    viewer.className = 'cell-viewer code-content';
-                    const pre = document.createElement('pre');
-                    const code = document.createElement('code');
-                    const language = notebook.metadata?.kernelspec?.language || 'python';
-                    code.className = `language-${language}`;
-                    code.textContent = sourceText;
-                    pre.appendChild(code);
-                    viewer.appendChild(pre);
+    /**
+     * Prepares the notebook object for export.
+     * This involves saving any open editors and ensuring the 'source' property of each cell
+     * is in the correct format (an array of strings with newlines).
+     * @returns {object} A deep copy of the notebook, ready for serialization.
+     */
+    function getNotebookForExport() {
+        // First, ensure any open editor's content is saved into our internal notebook object.
+        document.querySelectorAll('.cell-editor').forEach(editor => {
+            if (editor.style.display !== 'none') {
+                const index = parseInt(editor.dataset.index, 10);
+                if (!isNaN(index)) {
+                    saveEditorContent(index, editor.value);
                 }
-                contentArea.appendChild(cellWrapper);
-            });
-            Prism.highlightAll();
+            }
+        });
+        // Create a deep copy for modification to avoid altering the live state.
+        return JSON.parse(JSON.stringify(notebook));
+    }
+
+
+    function handleFileDownload() {
+        if (!notebook) return;
+        const notebookToDownload = getNotebookForExport();
+        const downloadName = (filenameInput.value || 'notebook') + '.ipynb';
+        const blob = new Blob([JSON.stringify(notebookToDownload, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = downloadName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+    }
+
+    function updateRawView() {
+        if (!notebook || rawViewContainer.classList.contains('hidden')) return;
+        const notebookForView = getNotebookForExport();
+        // For raw view, joining the source array makes it more readable.
+        notebookForView.cells.forEach(cell => {
+            if(Array.isArray(cell.source)) {
+                cell.source = cell.source.join('');
+            }
+        });
+        rawViewCode.textContent = JSON.stringify(notebookForView, null, 2);
+        Prism.highlightElement(rawViewCode);
+    }
+
+    function toggleRawView() {
+        const isHidden = rawViewContainer.classList.toggle('hidden');
+        if (isHidden) {
+            mainEditorPanel.classList.remove('w-3/5');
+            mainEditorPanel.classList.add('w-full');
+            viewRawBtn.textContent = 'View Raw';
+        } else {
+            mainEditorPanel.classList.remove('w-full');
+            mainEditorPanel.classList.add('w-3/5');
+            viewRawBtn.textContent = 'Hide Raw';
             updateRawView();
         }
+    }
+    
+    /**
+     * Saves the content from a textarea editor into the main notebook state object.
+     * The content is converted from a single string into an array of strings (lines),
+     * with each line ending in a newline character.
+     * @param {number} index - The index of the cell to save.
+     * @param {string} text - The text content from the editor.
+     */
+    function saveEditorContent(index, text) {
+         const lines = text.split('\n');
+         notebook.cells[index].source = lines.map((line, i) => {
+            // Add a newline to every line except the last one.
+            return i < lines.length - 1 ? line + '\n' : line;
+        });
+    }
+    
+    function handleCellActions(e) {
+        const target = e.target.closest('button');
+        if (!target) return;
+        const action = target.dataset.action;
+        const index = parseInt(target.dataset.index, 10);
 
-        // Helper functions
-        function resetState() {
-            contentArea.innerHTML = `<div id="placeholder-text" class="text-center text-gray-400 py-24"><svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg><p class="mt-4 text-lg">Start or upload an IPython notebook to get started.</p></div>`;
-            errorMessage.textContent = '';
-            notebook = null;
-            filenameContainer.classList.add('hidden');
-            disableActionButtons();
+        if (action === 'delete-cell') {
+            notebook.cells.splice(index, 1);
+        } else if (action === 'add-code' || action === 'add-markdown') {
+            const cellType = action === 'add-code' ? 'code' : 'markdown';
+            const newCell = { cell_type: cellType, source: [`# New ${cellType} cell\n`], metadata: {} };
+            if (cellType === 'code') {
+                newCell.outputs = [];
+                newCell.execution_count = null;
+            }
+            notebook.cells.splice(index + 1, 0, newCell);
+        } else if (action === 'edit-cell') {
+            toggleEditor(index, true);
+            return; // Avoid re-rendering immediately
+        } else if (action === 'save-cell') {
+            const editor = contentArea.querySelector(`.cell-editor[data-index="${index}"]`);
+            saveEditorContent(index, editor.value);
+            toggleEditor(index, false);
+        } else if (action === 'move-cell-up' && index > 0) {
+            [notebook.cells[index], notebook.cells[index - 1]] = [notebook.cells[index - 1], notebook.cells[index]];
+        } else if (action === 'move-cell-down' && index < notebook.cells.length - 1) {
+            [notebook.cells[index], notebook.cells[index + 1]] = [notebook.cells[index + 1], notebook.cells[index]];
         }
-        function disableActionButtons() {
-            downloadBtn.disabled = true;
-            downloadBtn.classList.add('opacity-50', 'cursor-not-allowed');
-            viewRawBtn.disabled = true;
-            viewRawBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        renderNotebook();
+    }
+
+    function toggleEditor(index, showEditor) {
+        const cellElement = contentArea.querySelector(`.notebook-cell[data-index="${index}"]`);
+        const viewer = cellElement.querySelector('.cell-viewer');
+        const editor = cellElement.querySelector('.cell-editor');
+        const editBtn = cellElement.querySelector('button[data-action="edit-cell"]');
+        const saveBtn = cellElement.querySelector('button[data-action="save-cell"]');
+
+        viewer.style.display = showEditor ? 'none' : 'block';
+        editor.style.display = showEditor ? 'block' : 'none';
+        editBtn.style.display = showEditor ? 'none' : 'inline-block';
+        saveBtn.style.display = showEditor ? 'inline-block' : 'none';
+
+        if (showEditor) {
+            editor.value = Array.isArray(notebook.cells[index].source) ? notebook.cells[index].source.join('') : '';
+            editor.focus();
+        } else {
+             renderNotebook();
         }
-        function enableActionButtons() {
-            downloadBtn.disabled = false;
-            downloadBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-            viewRawBtn.disabled = false;
-            viewRawBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-        }
-    </script>
+    }
+
+    function renderNotebook() {
+        contentArea.innerHTML = '';
+        if (!notebook || !notebook.cells) return;
+        notebook.cells.forEach((cell, index) => {
+            const isFirst = index === 0;
+            const isLast = index === notebook.cells.length - 1;
+
+            const cellWrapper = document.createElement('div');
+            cellWrapper.innerHTML = `
+                <div class="notebook-cell" data-index="${index}">
+                    <div class="cell-toolbar">
+                        <span class="cell-type-label text-xs text-gray-500 font-mono mr-auto uppercase">${cell.cell_type}</span>
+                        <button data-action="move-cell-up" data-index="${index}" title="Move cell up" ${isFirst ? 'disabled' : ''}><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg></button>
+                        <button data-action="move-cell-down" data-index="${index}" title="Move cell down" ${isLast ? 'disabled' : ''}><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></button>
+                        <button data-action="edit-cell" data-index="${index}">Edit</button>
+                        <button data-action="save-cell" data-index="${index}" style="display: none;">Save</button>
+                        <button data-action="delete-cell" data-index="${index}">Delete</button>
+                    </div>
+                    <div class="cell-content">
+                        <div class="cell-viewer"></div>
+                        <textarea class="cell-editor" data-index="${index}" style="display: none;"></textarea>
+                    </div>
+                </div>
+                <div class="add-cell-bar">
+                    <hr/>
+                    <div class="buttons">
+                        <button class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold" data-action="add-code" data-index="${index}">+ Code</button>
+                        <button class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold" data-action="add-markdown" data-index="${index}">+ Markdown</button>
+                    </div>
+                </div>
+            `;
+            
+            const viewer = cellWrapper.querySelector('.cell-viewer');
+            const sourceText = Array.isArray(cell.source) ? cell.source.join('') : '';
+
+            if (cell.cell_type === 'markdown') {
+                viewer.className = 'cell-viewer markdown-content';
+                viewer.innerHTML = marked.parse(sourceText);
+            } else if (cell.cell_type === 'code') {
+                viewer.className = 'cell-viewer code-content';
+                const pre = document.createElement('pre');
+                const code = document.createElement('code');
+                const language = notebook.metadata?.kernelspec?.language || 'python';
+                code.className = `language-${language}`;
+                code.textContent = sourceText;
+                pre.appendChild(code);
+                viewer.appendChild(pre);
+            }
+            contentArea.appendChild(cellWrapper);
+        });
+        Prism.highlightAll();
+        updateRawView();
+    }
+
+    // Helper functions
+    function resetState() {
+        contentArea.innerHTML = `<div id="placeholder-text" class="text-center text-gray-400 py-24"><svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg><p class="mt-4 text-lg">Start or upload an IPython notebook to get started.</p></div>`;
+        errorMessage.textContent = '';
+        notebook = null;
+        filenameContainer.classList.add('hidden');
+        disableActionButtons();
+    }
+    function disableActionButtons() {
+        downloadBtn.disabled = true;
+        downloadBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        viewRawBtn.disabled = true;
+        viewRawBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    }
+    function enableActionButtons() {
+        downloadBtn.disabled = false;
+        downloadBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        viewRawBtn.disabled = false;
+        viewRawBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+</script>
 </body>
 </html>
