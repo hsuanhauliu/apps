@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jupyter Notebook Editor</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Marked.js for Markdown -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Prism.js for Code Syntax Highlighting -->
+    <link id="prism-theme-light" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" />
+    <link id="prism-theme-dark" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" disabled />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    
+    <style>
+        /* Base styles for the main page (always light) */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f9fafb; /* gray-50 */
+            color: #1f2937; /* gray-800 */
+        }
+
+        /* --- Content Theming Styles --- */
+        
+        /* Light Theme for Content */
+        .theme-light .notebook-cell {
+            background-color: #ffffff;
+            border-color: #e5e7eb; /* gray-200 */
+        }
+        .theme-light .cell-toolbar {
+            background-color: #f9fafb; /* gray-50 */
+            border-color: #e5e7eb;
+        }
+        .theme-light .cell-toolbar button {
+             background-color: transparent; 
+             color: #374151; /* gray-700 */
+             border: 1px solid #d1d5db; /* gray-300 */
+        }
+        .theme-light .cell-toolbar button:hover:not(:disabled) {
+            background-color: #e5e7eb; /* gray-200 */
+        }
+        .theme-light .cell-editor {
+            background-color: #f3f4f6; /* gray-100 */
+            color: #1f2937;
+        }
+        .theme-light .code-content {
+            background-color: #f3f4f6; /* PrismJS light default */
+        }
+
+        /* Dark Theme for Content */
+        .theme-dark .notebook-cell {
+            background-color: #1f2937; /* gray-800 */
+            border-color: #374151; /* gray-700 */
+        }
+        .theme-dark .cell-toolbar {
+            background-color: #374151; /* gray-700 */
+            border-color: #4b5563; /* gray-600 */
+        }
+        .theme-dark .cell-toolbar .cell-type-label {
+             color: #d1d5db; /* gray-300 */
+        }
+        .theme-dark .cell-toolbar button {
+             background-color: transparent;
+             color: #f9fafb; /* gray-50 */
+             border: 1px solid #6b7280; /* gray-500 */
+        }
+        .theme-dark .cell-toolbar button:hover:not(:disabled) {
+            background-color: #4b5563; /* gray-600 */
+        }
+        .theme-dark .cell-editor {
+            background-color: #374151; /* gray-700 */
+            color: #d1d5db; /* gray-300 */
+        }
+        .theme-dark .code-content {
+            background-color: #2d2d2d; /* PrismJS dark default */
+        }
+
+        /* --- Markdown Content Styles --- */
+        .markdown-content {
+            padding: 1rem 1.5rem;
+            line-height: 1.6;
+        }
+        .markdown-content h1, .markdown-content h2, .markdown-content h3, .markdown-content h4 {
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+        .markdown-content h1 { font-size: 2em; }
+        .markdown-content h2 { font-size: 1.5em; }
+        .markdown-content h3 { font-size: 1.25em; }
+        .markdown-content p { margin-bottom: 1em; }
+        .markdown-content ul, .markdown-content ol {
+            margin-bottom: 1em;
+            padding-left: 2em;
+        }
+        .markdown-content li > p { margin-bottom: 0.5em; }
+        .markdown-content blockquote {
+            margin-left: 0;
+            padding-left: 1em;
+            border-left-width: 4px;
+            font-style: italic;
+        }
+        .markdown-content pre {
+            margin-bottom: 1em;
+            border-radius: 0.375rem; /* rounded-md */
+            overflow-x: auto;
+        }
+        .markdown-content code {
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+        .markdown-content :not(pre) > code {
+            padding: 0.2em 0.4em;
+            border-radius: 0.375rem;
+        }
+
+        /* Light Theme for Markdown */
+        .theme-light .markdown-content { color: #374151; } /* gray-700 */
+        .theme-light .markdown-content h1, .theme-light .markdown-content h2, .theme-light .markdown-content h3 { border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3em; color: #111827; }
+        .theme-light .markdown-content a { color: #2563eb; text-decoration: underline; } /* blue-600 */
+        .theme-light .markdown-content blockquote { border-color: #d1d5db; color: #6b7280; }
+        .theme-light .markdown-content :not(pre) > code { background-color: #e5e7eb; color: #be123c; }
+
+        /* Dark Theme for Markdown */
+        .theme-dark .markdown-content { color: #d1d5db; } /* gray-300 */
+        .theme-dark .markdown-content h1, .theme-dark .markdown-content h2, .theme-dark .markdown-content h3 { border-bottom: 1px solid #4b5563; padding-bottom: 0.3em; color: #f9fafb; }
+        .theme-dark .markdown-content a { color: #60a5fa; text-decoration: underline; } /* blue-400 */
+        .theme-dark .markdown-content blockquote { border-color: #6b7280; color: #9ca3af; }
+        .theme-dark .markdown-content :not(pre) > code { background-color: #4b5563; color: #f472b6; } /* gray-600, pink-400 */
+
+
+        /* General layout styles (unaffected by theme) */
+        .notebook-cell {
+            border: 1px solid;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            overflow: hidden;
+            position: relative;
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+        .cell-content { min-height: 50px; }
+        .cell-editor { width: 100%; height: 200px; font-family: monospace; font-size: 14px; border: none; padding: 1rem; resize: vertical; }
+        .cell-toolbar { padding: 0 0.5rem; display: flex; align-items: center; gap: 0.25rem; border-bottom: 1px solid; }
+        .cell-toolbar button { padding: 0.1rem 0.4rem; font-size: 0.75rem; border-radius: 0.25rem; display: flex; align-items: center; }
+        .cell-toolbar button:disabled { cursor: not-allowed; opacity: 0.4; }
+        .add-cell-bar { text-align: center; margin: 0.5rem 0; position: relative; }
+        .add-cell-bar hr { border-top: 1px dashed #ccc; }
+        .add-cell-bar .buttons { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 0 10px; display: flex; gap: 1rem; background-color: #f9fafb;}
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <div class="container mx-auto max-w-4xl px-4 py-8">
+        
+        <header class="text-center mb-8 relative">
+            <h1 class="text-4xl font-bold text-gray-900">Jupyter Notebook Editor</h1>
+            <p class="text-lg text-gray-600 mt-2">Upload, view, edit, or create a new notebook from scratch.</p>
+            <button id="theme-toggle" class="absolute top-0 right-0 p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" title="Toggle content theme">
+                <!-- Sun Icon -->
+                <svg id="theme-icon-light" class="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+                <!-- Moon Icon -->
+                <svg id="theme-icon-dark" class="h-6 w-6 text-gray-700 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+            </button>
+        </header>
+
+        <!-- Controls Section (always light) -->
+        <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200 mb-8">
+            <div class="flex flex-col sm:flex-row items-center justify-between sm:space-x-4 space-y-4 sm:space-y-0">
+                <div class="flex items-center space-x-2">
+                    <button id="new-btn" title="Create a new blank notebook" class="px-4 py-2 text-sm font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full whitespace-nowrap">
+                        New
+                    </button>
+                    <label for="notebook-upload" title="Upload an existing .ipynb file" class="px-4 py-2 text-sm font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full whitespace-nowrap cursor-pointer">
+                        Upload
+                    </label>
+                    <input type="file" id="notebook-upload" accept=".ipynb" class="hidden"/>
+                </div>
+                <button id="download-btn" title="Download the current notebook" disabled class="px-4 py-2 text-sm font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full whitespace-nowrap opacity-50 cursor-not-allowed">
+                    Download
+                </button>
+            </div>
+            <div id="error-message" class="text-red-500 text-sm mt-2"></div>
+        </div>
+        
+        <!-- Filename Editor -->
+        <div id="filename-container" class="mb-6 hidden">
+             <input type="text" id="filename-input" class="w-full text-2xl font-bold text-gray-800 bg-transparent focus:outline-none border-b-2 border-transparent focus:border-indigo-400 rounded-none px-1 py-1 transition-colors" />
+        </div>
+
+
+        <!-- Notebook Content Display Area -->
+        <main id="notebook-content">
+            <div id="placeholder-text" class="text-center text-gray-400 py-24">
+                <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <p class="mt-4 text-lg">Start or upload an Jupyter Notebook to get started.</p>
+            </div>
+        </main>
+
+    </div>
+
+    <script>
+        // DOM Elements
+        const fileInput = document.getElementById('notebook-upload');
+        const contentArea = document.getElementById('notebook-content');
+        const errorMessage = document.getElementById('error-message');
+        const downloadBtn = document.getElementById('download-btn');
+        const newBtn = document.getElementById('new-btn');
+        const themeToggle = document.getElementById('theme-toggle');
+        const themeIconLight = document.getElementById('theme-icon-light');
+        const themeIconDark = document.getElementById('theme-icon-dark');
+        const prismThemeLight = document.getElementById('prism-theme-light');
+        const prismThemeDark = document.getElementById('prism-theme-dark');
+        const filenameContainer = document.getElementById('filename-container');
+        const filenameInput = document.getElementById('filename-input');
+
+        // State
+        let notebook = null;
+        
+        // --- THEME LOGIC ---
+        function applyTheme(theme) {
+            if (theme === 'dark') {
+                contentArea.classList.remove('theme-light');
+                contentArea.classList.add('theme-dark');
+                themeIconLight.classList.add('hidden');
+                themeIconDark.classList.remove('hidden');
+                prismThemeLight.disabled = true;
+                prismThemeDark.disabled = false;
+            } else { // light
+                contentArea.classList.remove('theme-dark');
+                contentArea.classList.add('theme-light');
+                themeIconLight.classList.remove('hidden');
+                themeIconDark.classList.add('hidden');
+                prismThemeLight.disabled = false;
+                prismThemeDark.disabled = true;
+            }
+        }
+
+        function toggleTheme() {
+            const currentTheme = localStorage.getItem('content-theme') || 'dark';
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            localStorage.setItem('content-theme', newTheme);
+            applyTheme(newTheme);
+        }
+
+        const savedTheme = localStorage.getItem('content-theme') || 'dark';
+        applyTheme(savedTheme);
+
+        themeToggle.addEventListener('click', toggleTheme);
+        // --- END THEME LOGIC ---
+
+        // Event Listeners
+        fileInput.addEventListener('change', handleFileUpload);
+        downloadBtn.addEventListener('click', handleFileDownload);
+        newBtn.addEventListener('click', createNewNotebook);
+        contentArea.addEventListener('click', handleCellActions);
+
+        function createNewNotebook() {
+            filenameInput.value = "Untitled Notebook";
+            filenameContainer.classList.remove('hidden');
+
+            notebook = {
+                cells: [{ cell_type: "code", execution_count: null, metadata: {}, outputs: [], source: "# Your first code cell!" }],
+                metadata: { kernelspec: { display_name: "Python 3", language: "python", name: "python3" }, language_info: { name: "python" } },
+                nbformat: 4, nbformat_minor: 2
+            };
+            renderNotebook();
+            enableDownloadButton();
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            resetState();
+            if (!file) return;
+            
+            if (!file.name.endsWith('.ipynb')) {
+                errorMessage.textContent = 'Error: Please upload a valid .ipynb file.';
+                fileInput.value = ''; // Reset file input
+                return;
+            }
+
+            filenameInput.value = file.name.replace('.ipynb', '');
+            filenameContainer.classList.remove('hidden');
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    notebook = JSON.parse(e.target.result);
+                    if (notebook.cells && Array.isArray(notebook.cells)) {
+                        notebook.cells.forEach(cell => {
+                            if (Array.isArray(cell.source)) {
+                                cell.source = cell.source.join('');
+                            }
+                        });
+                    }
+                    renderNotebook();
+                    enableDownloadButton();
+                } catch (error) { errorMessage.textContent = 'Error: Could not parse the notebook file.'; }
+            };
+            reader.onerror = () => { errorMessage.textContent = 'Error: Could not read the file.'; };
+            reader.readAsText(file);
+        }
+
+        function handleFileDownload() {
+            if (!notebook) return;
+            
+            document.querySelectorAll('.cell-editor').forEach(editor => {
+                const index = parseInt(editor.dataset.index, 10);
+                if (!isNaN(index)) {
+                    notebook.cells[index].source = editor.value;
+                }
+            });
+
+            const notebookToDownload = JSON.parse(JSON.stringify(notebook));
+
+            notebookToDownload.cells.forEach(cell => {
+                if (typeof cell.source === 'string') {
+                    const lines = cell.source.split('\n');
+                    cell.source = lines.map((line, i) => {
+                        return i < lines.length - 1 ? line + '\n' : line;
+                    });
+                }
+            });
+            
+            const downloadName = (filenameInput.value || 'notebook') + '.ipynb';
+
+            const blob = new Blob([JSON.stringify(notebookToDownload, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = downloadName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+        }
+        
+        function handleCellActions(e) {
+            const target = e.target.closest('button');
+            if (!target) return;
+            const action = target.dataset.action;
+            const index = parseInt(target.dataset.index, 10);
+
+            if (action === 'delete-cell') {
+                notebook.cells.splice(index, 1);
+                renderNotebook();
+            } else if (action === 'add-code' || action === 'add-markdown') {
+                const cellType = action === 'add-code' ? 'code' : 'markdown';
+                const newCell = { cell_type: cellType, source: `# New ${cellType} cell`, metadata: {} };
+                if (cellType === 'code') {
+                    newCell.outputs = [];
+                    newCell.execution_count = null;
+                }
+                notebook.cells.splice(index + 1, 0, newCell);
+                renderNotebook();
+            } else if (action === 'edit-cell') {
+                toggleEditor(index, true);
+            } else if (action === 'save-cell') {
+                const editor = contentArea.querySelector(`.cell-editor[data-index="${index}"]`);
+                notebook.cells[index].source = editor.value;
+                toggleEditor(index, false);
+            } else if (action === 'move-cell-up' && index > 0) {
+                [notebook.cells[index], notebook.cells[index - 1]] = [notebook.cells[index - 1], notebook.cells[index]];
+                renderNotebook();
+            } else if (action === 'move-cell-down' && index < notebook.cells.length - 1) {
+                [notebook.cells[index], notebook.cells[index + 1]] = [notebook.cells[index + 1], notebook.cells[index]];
+                renderNotebook();
+            }
+        }
+
+        function toggleEditor(index, showEditor) {
+            const cellElement = contentArea.querySelector(`.notebook-cell[data-index="${index}"]`);
+            const viewer = cellElement.querySelector('.cell-viewer');
+            const editor = cellElement.querySelector('.cell-editor');
+            const editBtn = cellElement.querySelector('button[data-action="edit-cell"]');
+            const saveBtn = cellElement.querySelector('button[data-action="save-cell"]');
+
+            viewer.style.display = showEditor ? 'none' : 'block';
+            editor.style.display = showEditor ? 'block' : 'none';
+            editBtn.style.display = showEditor ? 'none' : 'inline-block';
+            saveBtn.style.display = showEditor ? 'inline-block' : 'none';
+
+            if (showEditor) {
+                editor.value = typeof notebook.cells[index].source === 'string' ? notebook.cells[index].source : '';
+                editor.focus();
+            } else {
+                 renderNotebook();
+            }
+        }
+
+        function renderNotebook() {
+            contentArea.innerHTML = '';
+            if (!notebook || !notebook.cells) return;
+            notebook.cells.forEach((cell, index) => {
+                const isFirst = index === 0;
+                const isLast = index === notebook.cells.length - 1;
+
+                const cellWrapper = document.createElement('div');
+                cellWrapper.innerHTML = `
+                    <div class="notebook-cell" data-index="${index}">
+                        <div class="cell-toolbar">
+                            <span class="cell-type-label text-xs text-gray-500 font-mono mr-auto uppercase">${cell.cell_type}</span>
+                            
+                            <button data-action="move-cell-up" data-index="${index}" title="Move cell up" ${isFirst ? 'disabled' : ''}>
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
+                            </button>
+                            <button data-action="move-cell-down" data-index="${index}" title="Move cell down" ${isLast ? 'disabled' : ''}>
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </button>
+                            
+                            <button data-action="edit-cell" data-index="${index}">Edit</button>
+                            <button data-action="save-cell" data-index="${index}" style="display: none;">Save</button>
+                            <button data-action="delete-cell" data-index="${index}">Delete</button>
+                        </div>
+                        <div class="cell-content">
+                            <div class="cell-viewer"></div>
+                            <textarea class="cell-editor" data-index="${index}" style="display: none;"></textarea>
+                        </div>
+                    </div>
+                    <div class="add-cell-bar">
+                        <hr/>
+                        <div class="buttons">
+                            <button class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold" data-action="add-code" data-index="${index}">+ Code</button>
+                            <button class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold" data-action="add-markdown" data-index="${index}">+ Markdown</button>
+                        </div>
+                    </div>
+                `;
+                
+                const viewer = cellWrapper.querySelector('.cell-viewer');
+                const sourceText = typeof cell.source === 'string' ? cell.source : '';
+
+                if (cell.cell_type === 'markdown') {
+                    viewer.className = 'cell-viewer markdown-content';
+                    viewer.innerHTML = marked.parse(sourceText);
+                } else if (cell.cell_type === 'code') {
+                    viewer.className = 'cell-viewer code-content';
+                    const pre = document.createElement('pre');
+                    const code = document.createElement('code');
+                    const language = notebook.metadata?.kernelspec?.language || 'python';
+                    code.className = `language-${language}`;
+                    code.textContent = sourceText;
+                    pre.appendChild(code);
+                    viewer.appendChild(pre);
+                }
+                contentArea.appendChild(cellWrapper);
+            });
+            Prism.highlightAll();
+        }
+
+        // Helper functions
+        function resetState() {
+            contentArea.innerHTML = `
+                <div id="placeholder-text" class="text-center text-gray-400 py-24">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <p class="mt-4 text-lg">Start or upload an IPython notebook to get started.</p>
+                </div>
+            `;
+            errorMessage.textContent = '';
+            notebook = null;
+            filenameContainer.classList.add('hidden');
+            disableDownloadButton();
+        }
+        function disableDownloadButton() {
+            downloadBtn.disabled = true;
+            downloadBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+        function enableDownloadButton() {
+            downloadBtn.disabled = false;
+            downloadBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+    </script>
+</body>
+</html>
