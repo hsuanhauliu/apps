@@ -138,14 +138,39 @@
             position: relative;
             transition: background-color 0.3s, border-color 0.3s;
         }
-        .cell-content { min-height: 50px; }
+        .cell-content { 
+            min-height: 50px; 
+            transition: all 0.3s ease-in-out;
+        }
+        .cell-content.collapsed {
+            display: none;
+        }
         .cell-editor { width: 100%; height: 200px; font-family: monospace; font-size: 14px; border: none; padding: 1rem; resize: vertical; }
-        .cell-toolbar { padding: 0 0.5rem; display: flex; align-items: center; gap: 0.25rem; border-bottom: 1px solid; }
-        .cell-toolbar button { padding: 0.1rem 0.4rem; font-size: 0.75rem; border-radius: 0.25rem; display: flex; align-items: center; }
+        .cell-toolbar { 
+            padding: 0 0.5rem; 
+            display: flex; 
+            align-items: center; 
+            gap: 0.25rem; 
+            border-bottom: 1px solid; 
+            cursor: grab; 
+        }
+        .cell-toolbar button { padding: 0 0.4rem; font-size: 0.75rem; border-radius: 0.25rem; display: flex; align-items: center; }
         .cell-toolbar button:disabled { cursor: not-allowed; opacity: 0.4; }
         .add-cell-bar { text-align: center; margin: 0.5rem 0; position: relative; }
         .add-cell-bar hr { border-top: 1px dashed #ccc; }
         .add-cell-bar .buttons { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 0 10px; display: flex; gap: 1rem; background-color: #f9fafb;}
+
+        /* Drag and Drop Styles */
+        .cell-container.dragging {
+            opacity: 0.5;
+        }
+        .drop-placeholder {
+            height: 50px;
+            background-color: #c7d2fe; /* indigo-200 */
+            border: 2px dashed #6366f1; /* indigo-500 */
+            margin: 0.5rem 0;
+            border-radius: 0.5rem;
+        }
 
         /* Raw View Styles */
         #raw-view-container {
@@ -170,6 +195,8 @@
                 </button>
             </header>
 
+            <div id="error-message" class="text-red-600 bg-red-100 border border-red-400 text-sm rounded-md p-4 mb-6 text-center hidden"></div>
+
             <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200 mb-8">
                 <div class="flex flex-col sm:flex-row items-center justify-between sm:space-x-4 space-y-4 sm:space-y-0">
                     <div class="flex items-center space-x-2">
@@ -177,13 +204,13 @@
                         <label for="notebook-upload" title="Upload an existing .ipynb file" class="px-4 py-2 text-sm font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full whitespace-nowrap cursor-pointer">Upload</label>
                         <input type="file" id="notebook-upload" accept=".ipynb" class="hidden"/>
                         <button id="paste-btn" title="Paste raw .ipynb JSON data" class="px-4 py-2 text-sm font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full whitespace-nowrap">Paste</button>
+                        <button id="url-btn" title="Load notebook from URL" class="px-4 py-2 text-sm font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full whitespace-nowrap">URL</button>
                     </div>
                      <div class="flex items-center space-x-2">
-                        <button id="view-raw-btn" title="View raw JSON" disabled class="px-4 py-2 text-sm font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full whitespace-nowrap opacity-50 cursor-not-allowed">View Raw</button>
+                        <button id="view-raw-btn" title="View raw JSON" disabled class="px-4 py-2 text-sm font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full whitespace-nowrap opacity-50 cursor-not-allowed">Raw</button>
                         <button id="download-btn" title="Download the current notebook" disabled class="px-4 py-2 text-sm font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full whitespace-nowrap opacity-50 cursor-not-allowed">Download</button>
                     </div>
                 </div>
-                <div id="error-message" class="text-red-500 text-sm mt-2"></div>
             </div>
             
             <div id="filename-container" class="mb-6 hidden">
@@ -204,6 +231,7 @@
     </div>
 </div>
 
+<!-- Paste Modal -->
 <div id="paste-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center hidden z-50">
     <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl">
         <h2 class="text-xl font-bold mb-4">Paste Notebook JSON</h2>
@@ -216,6 +244,20 @@
     </div>
 </div>
 
+<!-- URL Modal -->
+<div id="url-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center hidden z-50">
+    <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl">
+        <h2 class="text-xl font-bold mb-4">Load Notebook from URL</h2>
+        <p class="text-gray-600 mb-4">Enter the URL of a raw <code>.ipynb</code> file. Note: The URL must be CORS-enabled (e.g., a raw GitHub Gist URL).</p>
+        <input type="url" id="url-input" class="w-full p-2 border border-gray-300 rounded-md" placeholder="https://.../notebook.ipynb">
+        <div class="mt-4 flex justify-end space-x-2">
+            <button id="url-cancel-btn" class="px-4 py-2 text-sm font-semibold bg-gray-200 text-gray-800 hover:bg-gray-300 rounded-md">Cancel</button>
+            <button id="url-submit-btn" class="px-4 py-2 text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 rounded-md">Load Notebook</button>
+        </div>
+    </div>
+</div>
+
+
 <script>
     // DOM Elements
     const mainEditorPanel = document.getElementById('main-editor-panel');
@@ -225,6 +267,7 @@
     const downloadBtn = document.getElementById('download-btn');
     const newBtn = document.getElementById('new-btn');
     const pasteBtn = document.getElementById('paste-btn');
+    const urlBtn = document.getElementById('url-btn');
     const themeToggle = document.getElementById('theme-toggle');
     const themeIconLight = document.getElementById('theme-icon-light');
     const themeIconDark = document.getElementById('theme-icon-dark');
@@ -235,10 +278,18 @@
     const rawViewContainer = document.getElementById('raw-view-container');
     const rawViewCode = document.getElementById('raw-view-code');
     const viewRawBtn = document.getElementById('view-raw-btn');
+    
+    // Paste Modal Elements
     const pasteModal = document.getElementById('paste-modal');
     const pasteTextarea = document.getElementById('paste-textarea');
     const pasteCancelBtn = document.getElementById('paste-cancel-btn');
     const pasteSubmitBtn = document.getElementById('paste-submit-btn');
+
+    // URL Modal Elements
+    const urlModal = document.getElementById('url-modal');
+    const urlInput = document.getElementById('url-input');
+    const urlCancelBtn = document.getElementById('url-cancel-btn');
+    const urlSubmitBtn = document.getElementById('url-submit-btn');
 
     // State
     let notebook = null;
@@ -280,6 +331,9 @@
     pasteBtn.addEventListener('click', openPasteModal);
     pasteCancelBtn.addEventListener('click', closePasteModal);
     pasteSubmitBtn.addEventListener('click', handlePasteSubmit);
+    urlBtn.addEventListener('click', openUrlModal);
+    urlCancelBtn.addEventListener('click', closeUrlModal);
+    urlSubmitBtn.addEventListener('click', handleUrlSubmit);
     contentArea.addEventListener('click', handleCellActions);
     viewRawBtn.addEventListener('click', toggleRawView);
 
@@ -300,6 +354,7 @@
 
         if (!file.name.endsWith('.ipynb')) {
             errorMessage.textContent = 'Error: Please upload a valid .ipynb file.';
+            errorMessage.classList.remove('hidden');
             fileInput.value = ''; // Reset file input
             return;
         }
@@ -312,23 +367,40 @@
             } catch (error) {
                 console.error("Parsing error:", error);
                 errorMessage.textContent = 'Error: Could not parse the notebook file.';
+                errorMessage.classList.remove('hidden');
                 return;
             }
             loadAndRenderNotebook(parsedNotebook, file.name);
         };
-        reader.onerror = () => { errorMessage.textContent = 'Error: Could not read the file.'; };
+        reader.onerror = () => { 
+            errorMessage.textContent = 'Error: Could not read the file.'; 
+            errorMessage.classList.remove('hidden');
+        };
         reader.readAsText(file);
     }
     
     function openPasteModal() {
         pasteTextarea.value = '';
         errorMessage.textContent = '';
+        errorMessage.classList.add('hidden');
         pasteModal.classList.remove('hidden');
         pasteTextarea.focus();
     }
 
     function closePasteModal() {
         pasteModal.classList.add('hidden');
+    }
+    
+    function openUrlModal() {
+        urlInput.value = '';
+        errorMessage.textContent = '';
+        errorMessage.classList.add('hidden');
+        urlModal.classList.remove('hidden');
+        urlInput.focus();
+    }
+
+    function closeUrlModal() {
+        urlModal.classList.add('hidden');
     }
 
     function handlePasteSubmit() {
@@ -343,9 +415,31 @@
         } catch (error) {
             console.error("Paste parsing error:", error);
             errorMessage.textContent = 'Error: Pasted text is not valid JSON.';
+            errorMessage.classList.remove('hidden');
             return;
         }
         loadAndRenderNotebook(parsedNotebook, "Pasted Notebook");
+    }
+
+    async function handleUrlSubmit() {
+        const url = urlInput.value;
+        closeUrlModal();
+        if (!url.trim()) return;
+
+        resetState();
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const notebookJson = await response.json();
+            const fileName = url.substring(url.lastIndexOf('/') + 1) || "URL Notebook";
+            loadAndRenderNotebook(notebookJson, fileName);
+        } catch (error) {
+            console.error("URL fetch/parse error:", error);
+            errorMessage.textContent = `Error: Could not load or parse notebook from URL. ${error.message}`;
+            errorMessage.classList.remove('hidden');
+        }
     }
     
     function loadAndRenderNotebook(notebookData, fileName) {
@@ -353,8 +447,9 @@
             if (!notebookData || !Array.isArray(notebookData.cells)) {
                 throw new Error("Invalid notebook format: 'cells' array not found.");
             }
-            // Standardize cell.source to be an array of strings ending in \n
+            // Standardize cell.source and ensure metadata exists
             notebookData.cells.forEach(cell => {
+                cell.metadata = cell.metadata || {}; // Ensure metadata object exists
                 const source = cell.source;
                 if (typeof source === 'string') {
                     const lines = source.split('\n');
@@ -371,9 +466,11 @@
             renderNotebook();
             enableActionButtons();
             errorMessage.textContent = '';
+            errorMessage.classList.add('hidden');
         } catch (error) {
             console.error("Notebook loading error:", error);
             errorMessage.textContent = `Error: ${error.message}`;
+            errorMessage.classList.remove('hidden');
             resetState();
         }
     }
@@ -431,11 +528,11 @@
         if (isHidden) {
             mainEditorPanel.classList.remove('w-3/5');
             mainEditorPanel.classList.add('w-full');
-            viewRawBtn.textContent = 'View Raw';
+            viewRawBtn.textContent = 'Raw';
         } else {
             mainEditorPanel.classList.remove('w-full');
             mainEditorPanel.classList.add('w-3/5');
-            viewRawBtn.textContent = 'Hide Raw';
+            viewRawBtn.textContent = 'Hide';
             updateRawView();
         }
     }
@@ -472,31 +569,50 @@
             }
             notebook.cells.splice(index + 1, 0, newCell);
         } else if (action === 'edit-cell') {
+            // If the cell is collapsed, expand it first.
+            if (notebook.cells[index].metadata.collapsed) {
+                notebook.cells[index].metadata.collapsed = false;
+                // Manually update the DOM to reflect the change without a full re-render
+                // to avoid losing focus when the editor is toggled on.
+                const cellContainer = contentArea.querySelector(`.cell-container[data-index="${index}"]`);
+                cellContainer.querySelector('.cell-content').classList.remove('collapsed');
+                const toggleButton = cellContainer.querySelector('button[data-action="toggle-collapse"]');
+                toggleButton.title = 'Collapse cell';
+                const toggleButtonSpan = toggleButton.querySelector('span');
+                toggleButtonSpan.textContent = '-';
+            }
             toggleEditor(index, true);
             return; // Avoid re-rendering immediately
         } else if (action === 'save-cell') {
-            const editor = contentArea.querySelector(`.cell-editor[data-index="${index}"]`);
+            const editor = contentArea.querySelector(`.cell-container[data-index="${index}"] .cell-editor`);
             saveEditorContent(index, editor.value);
             toggleEditor(index, false);
+        } else if (action === 'cancel-edit') {
+            toggleEditor(index, false);
+            return; // Avoid re-rendering
         } else if (action === 'move-cell-up' && index > 0) {
             [notebook.cells[index], notebook.cells[index - 1]] = [notebook.cells[index - 1], notebook.cells[index]];
         } else if (action === 'move-cell-down' && index < notebook.cells.length - 1) {
             [notebook.cells[index], notebook.cells[index + 1]] = [notebook.cells[index + 1], notebook.cells[index]];
+        } else if (action === 'toggle-collapse') {
+            notebook.cells[index].metadata.collapsed = !notebook.cells[index].metadata.collapsed;
         }
         renderNotebook();
     }
 
     function toggleEditor(index, showEditor) {
-        const cellElement = contentArea.querySelector(`.notebook-cell[data-index="${index}"]`);
-        const viewer = cellElement.querySelector('.cell-viewer');
-        const editor = cellElement.querySelector('.cell-editor');
-        const editBtn = cellElement.querySelector('button[data-action="edit-cell"]');
-        const saveBtn = cellElement.querySelector('button[data-action="save-cell"]');
+        const cellContainer = contentArea.querySelector(`.cell-container[data-index="${index}"]`);
+        const viewer = cellContainer.querySelector('.cell-viewer');
+        const editor = cellContainer.querySelector('.cell-editor');
+        const editBtn = cellContainer.querySelector('button[data-action="edit-cell"]');
+        const saveBtn = cellContainer.querySelector('button[data-action="save-cell"]');
+        const cancelBtn = cellContainer.querySelector('button[data-action="cancel-edit"]');
 
         viewer.style.display = showEditor ? 'none' : 'block';
         editor.style.display = showEditor ? 'block' : 'none';
         editBtn.style.display = showEditor ? 'none' : 'inline-block';
         saveBtn.style.display = showEditor ? 'inline-block' : 'none';
+        cancelBtn.style.display = showEditor ? 'inline-block' : 'none';
 
         if (showEditor) {
             editor.value = Array.isArray(notebook.cells[index].source) ? notebook.cells[index].source.join('') : '';
@@ -512,19 +628,28 @@
         notebook.cells.forEach((cell, index) => {
             const isFirst = index === 0;
             const isLast = index === notebook.cells.length - 1;
+            const isCollapsed = cell.metadata.collapsed;
 
-            const cellWrapper = document.createElement('div');
-            cellWrapper.innerHTML = `
-                <div class="notebook-cell" data-index="${index}">
-                    <div class="cell-toolbar">
-                        <span class="cell-type-label text-xs text-gray-500 font-mono mr-auto uppercase">${cell.cell_type}</span>
+            const cellContainer = document.createElement('div');
+            cellContainer.className = 'cell-container';
+            cellContainer.dataset.index = index;
+            
+            cellContainer.innerHTML = `
+                <div class="notebook-cell">
+                    <div class="cell-toolbar" draggable="true">
+                        <button data-action="toggle-collapse" data-index="${index}" title="${isCollapsed ? 'Expand' : 'Collapse'} cell">
+                            <span class="font-bold w-4 h-4 flex items-center justify-center">${isCollapsed ? '+' : '-'}</span>
+                        </button>
+                        <span class="cell-type-label text-xs text-gray-500 font-mono uppercase ml-2">[${index + 1}] ${cell.cell_type}</span>
+                        <div class="flex-grow"></div>
                         <button data-action="move-cell-up" data-index="${index}" title="Move cell up" ${isFirst ? 'disabled' : ''}><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg></button>
                         <button data-action="move-cell-down" data-index="${index}" title="Move cell down" ${isLast ? 'disabled' : ''}><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></button>
                         <button data-action="edit-cell" data-index="${index}">Edit</button>
                         <button data-action="save-cell" data-index="${index}" style="display: none;">Save</button>
+                        <button data-action="cancel-edit" data-index="${index}" style="display: none;">Cancel</button>
                         <button data-action="delete-cell" data-index="${index}">Delete</button>
                     </div>
-                    <div class="cell-content">
+                    <div class="cell-content ${isCollapsed ? 'collapsed' : ''}">
                         <div class="cell-viewer"></div>
                         <textarea class="cell-editor" data-index="${index}" style="display: none;"></textarea>
                     </div>
@@ -538,7 +663,7 @@
                 </div>
             `;
             
-            const viewer = cellWrapper.querySelector('.cell-viewer');
+            const viewer = cellContainer.querySelector('.cell-viewer');
             const sourceText = Array.isArray(cell.source) ? cell.source.join('') : '';
 
             if (cell.cell_type === 'markdown') {
@@ -554,16 +679,108 @@
                 pre.appendChild(code);
                 viewer.appendChild(pre);
             }
-            contentArea.appendChild(cellWrapper);
+            contentArea.appendChild(cellContainer);
         });
         Prism.highlightAll();
         updateRawView();
     }
 
+    // --- Drag and Drop Logic ---
+    let draggedItem = null;
+
+    contentArea.addEventListener('dragstart', (e) => {
+        const handle = e.target.closest('.cell-toolbar');
+        if (!handle) {
+            e.preventDefault();
+            return;
+        }
+
+        draggedItem = e.target.closest('.cell-container');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', draggedItem.dataset.index);
+
+        // Use a timeout to allow the browser to create the drag image
+        setTimeout(() => {
+            if (draggedItem) {
+                draggedItem.classList.add('dragging');
+            }
+        }, 0);
+    });
+
+    contentArea.addEventListener('dragend', (e) => {
+        if (draggedItem) {
+            draggedItem.classList.remove('dragging');
+        }
+        draggedItem = null;
+        const placeholder = contentArea.querySelector('.drop-placeholder');
+        if (placeholder) {
+            placeholder.remove();
+        }
+    });
+
+    contentArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        const overElement = e.target.closest('.cell-container');
+        if (!overElement || overElement === draggedItem) {
+            return;
+        }
+
+        let placeholder = contentArea.querySelector('.drop-placeholder');
+        if (!placeholder) {
+            placeholder = document.createElement('div');
+            placeholder.className = 'drop-placeholder';
+        }
+
+        const rect = overElement.getBoundingClientRect();
+        const isAfter = e.clientY > rect.top + rect.height / 2;
+
+        if (isAfter) {
+            contentArea.insertBefore(placeholder, overElement.nextSibling);
+        } else {
+            contentArea.insertBefore(placeholder, overElement);
+        }
+    });
+
+    contentArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const placeholder = contentArea.querySelector('.drop-placeholder');
+        if (!placeholder || !draggedItem) {
+            return;
+        }
+
+        const fromIndex = parseInt(draggedItem.dataset.index, 10);
+        
+        // Find the new index based on the placeholder's position
+        const allContainers = [...contentArea.querySelectorAll('.cell-container')];
+        let toIndex = allContainers.indexOf(placeholder.nextSibling);
+
+        // If placeholder is at the end, toIndex will be -1
+        if (toIndex === -1) {
+            toIndex = allContainers.length;
+        }
+        
+        // Adjust index if moving item downwards
+        if (fromIndex < toIndex) {
+            toIndex--;
+        }
+        
+        // Remove the placeholder before re-rendering
+        placeholder.remove();
+
+        // Reorder the data array
+        const [movedItem] = notebook.cells.splice(fromIndex, 1);
+        notebook.cells.splice(toIndex, 0, movedItem);
+
+        // Re-render the entire notebook
+        renderNotebook();
+    });
+
+
     // Helper functions
     function resetState() {
         contentArea.innerHTML = `<div id="placeholder-text" class="text-center text-gray-400 py-24"><svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg><p class="mt-4 text-lg">Start or upload an IPython notebook to get started.</p></div>`;
         errorMessage.textContent = '';
+        errorMessage.classList.add('hidden');
         notebook = null;
         filenameContainer.classList.add('hidden');
         disableActionButtons();
