@@ -1,0 +1,200 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hsuan-Hau Liu Client Apps</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #1e1e1e;
+            color: #f0f0f0;
+            text-align: center;
+        }
+        .header-container {
+            max-width: 450px;
+            margin: 0 auto 20px auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            text-align: left;
+        }
+        .filter-select { /* NEW */
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #333;
+            background-color: #2a2a2a;
+            color: #f0f0f0;
+            font-size: 1em;
+            width: 100%;
+            box-sizing: border-box;
+            -webkit-appearance: none; /* Remove default styling on mobile */
+            -moz-appearance: none;
+            appearance: none;
+            cursor: pointer;
+        }
+        .link-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            max-width: 450px;
+            margin: 0 auto;
+        }
+        .link-button {
+            display: block;
+            padding: 18px 20px;
+            color: #f0f0f0;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 1.15em;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+            transition: background-color 0.2s ease, transform 0.1s ease, opacity 0.3s; /* Added opacity */
+            text-align: left;
+        }
+        
+        /* Hidden state for filtering */
+        .link-button.hidden { /* NEW */
+            display: none;
+            opacity: 0;
+        }
+        
+        /* Directory path styling (softer look) */
+        .link-button .directory {
+            font-weight: normal;
+            color: #bbbbbb;
+            font-size: 0.9em;
+            display: block;
+            margin-top: 5px;
+        }
+
+        /* Primary Button Color (Soothing Blue/Green) */
+        .primary-btn {
+            background-color: #3f51b5;
+        }
+        .primary-btn:hover {
+            background-color: #303f9f;
+        }
+
+        /* Secondary Button Color (Alternating contrast) */
+        .secondary-btn {
+            background-color: #009688;
+        }
+        .secondary-btn:hover {
+            background-color: #00796b;
+        }
+        
+        .link-button:active {
+            transform: translateY(1px);
+        }
+        
+        p {
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header-container">
+        <select id="directoryFilter" class="filter-select">
+            <option value="all" selected>All Directories</option>
+<option value="art">art/</option>
+<option value="edit">edit/</option>
+<option value="exercise">exercise/</option>
+<option value="games">games/</option>
+<option value="media">media/</option>
+        </select>
+    </div>
+
+    <div class="link-container" id="linkContainer">
+        
+        <a href="art/constellation_creator.html" class="link-button primary-btn" data-directory="art">
+            Constellation Creator <span class='directory'>(art/)</span>
+        </a>
+        
+
+        <a href="art/sketchpad.html" class="link-button secondary-btn" data-directory="art">
+            Sketchpad <span class='directory'>(art/)</span>
+        </a>
+        
+
+        <a href="edit/notebook_editor.html" class="link-button primary-btn" data-directory="edit">
+            Notebook Editor <span class='directory'>(edit/)</span>
+        </a>
+        
+
+        <a href="edit/simple_pdf_editor.html" class="link-button secondary-btn" data-directory="edit">
+            Simple Pdf Editor <span class='directory'>(edit/)</span>
+        </a>
+        
+
+        <a href="exercise/stopwatch_timer.html" class="link-button primary-btn" data-directory="exercise">
+            Stopwatch Timer <span class='directory'>(exercise/)</span>
+        </a>
+        
+
+        <a href="exercise/weighted_calisthenics_calculator.html" class="link-button secondary-btn" data-directory="exercise">
+            Weighted Calisthenics Calculator <span class='directory'>(exercise/)</span>
+        </a>
+        
+
+        <a href="games/blackjack.html" class="link-button primary-btn" data-directory="games">
+            Blackjack <span class='directory'>(games/)</span>
+        </a>
+        
+
+        <a href="games/chess_timer.html" class="link-button secondary-btn" data-directory="games">
+            Chess Timer <span class='directory'>(games/)</span>
+        </a>
+        
+
+        <a href="games/chessboard_simulation.html" class="link-button primary-btn" data-directory="games">
+            Chessboard Simulation <span class='directory'>(games/)</span>
+        </a>
+        
+
+        <a href="games/tetris.html" class="link-button secondary-btn" data-directory="games">
+            Tetris <span class='directory'>(games/)</span>
+        </a>
+        
+
+        <a href="media/image_metadata_remover.html" class="link-button primary-btn" data-directory="media">
+            Image Metadata Remover <span class='directory'>(media/)</span>
+        </a>
+        
+
+        <a href="media/qr_generator.html" class="link-button secondary-btn" data-directory="media">
+            Qr Generator <span class='directory'>(media/)</span>
+        </a>
+        
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const filter = document.getElementById('directoryFilter');
+            const links = document.querySelectorAll('.link-button');
+
+            filter.addEventListener('change', (event) => {
+                const selectedDir = event.target.value;
+
+                links.forEach(link => {
+                    const linkDir = link.getAttribute('data-directory');
+
+                    if (selectedDir === 'all') {
+                        link.classList.remove('hidden');
+                    } else if (linkDir === selectedDir || (selectedDir === 'root-dir' && linkDir === 'root-dir')) {
+                        // 'root-dir' is the value for files directly in the target folder
+                        link.classList.remove('hidden');
+                    } else {
+                        link.classList.add('hidden');
+                    }
+                });
+            });
+        });
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weighted Calisthenics Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d1117;
+            color: #c9d1d9;
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background-color: #30363d;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8 min-h-screen">
+
+    <div class="max-w-4xl mx-auto bg-[#161b22] p-6 sm:p-10 rounded-xl shadow-2xl">
+        <header class="mb-8">
+            <h1 class="text-3xl sm:text-4xl font-extrabold text-[#58a6ff]">Weighted Calisthenics Load Calculator</h1>
+            <p class="text-gray-400 mt-2">Calculate the additional weight required for weighted pull-ups or dips based on your current max and body weight.</p>
+        </header>
+
+        <!-- Input Forms -->
+        <div class="grid md:grid-cols-3 gap-6 mb-10">
+
+            <!-- Body Weight Input -->
+            <div>
+                <label for="bodyWeight" class="block text-sm font-medium text-gray-300 mb-1">Body Weight (lbs)</label>
+                <input type="number" id="bodyWeight" placeholder="e.g., 185" value="165"
+                       class="w-full px-4 py-2 bg-[#0d1117] border border-gray-700 rounded-lg focus:ring-[#58a6ff] focus:border-[#58a6ff] text-white"
+                       oninput="calculateWeight()">
+            </div>
+
+            <!-- Max Added Weight Input -->
+            <div>
+                <label for="maxWeight" class="block text-sm font-medium text-gray-300 mb-1">Max Added Weight / 1RM (lbs)</label>
+                <input type="number" id="maxWeight" placeholder="e.g., 75" value="70"
+                       class="w-full px-4 py-2 bg-[#0d1117] border border-gray-700 rounded-lg focus:ring-[#58a6ff] focus:border-[#58a6ff] text-white"
+                       oninput="calculateWeight()">
+            </div>
+
+            <!-- Body Weight Percentage Input -->
+            <div>
+                <label for="bodyWeightPercentage" class="block text-sm font-medium text-gray-300 mb-1">Body Weight % Used in Exercise</label>
+                <div class="relative">
+                    <input type="number" id="bodyWeightPercentage" placeholder="e.g., 95" value="95" min="1" max="100"
+                           class="w-full pr-12 pl-4 py-2 bg-[#0d1117] border border-gray-700 rounded-lg focus:ring-[#58a6ff] focus:border-[#58a6ff] text-white"
+                           oninput="calculateWeight()">
+                    <span class="absolute right-0 top-0 mt-2.5 mr-4 text-gray-500 font-semibold">%</span>
+                </div>
+            </div>
+        </div>
+
+        <h2 class="text-2xl font-bold text-white mb-6 border-b border-gray-700 pb-2">Weight Calculation Table</h2>
+        
+        <!-- Table for 65% to 100% in 5% increments -->
+        <div class="overflow-x-auto shadow-lg rounded-lg border border-gray-700">
+            <table class="min-w-full divide-y divide-gray-700">
+                <thead class="bg-[#30363d] text-gray-300">
+                    <tr>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
+                            Target % of Max Load
+                        </th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
+                            Total Load (lbs)
+                        </th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
+                            Required Added Weight (lbs)
+                        </th>
+                    </tr>
+                </thead>
+                <tbody id="resultsTableBody" class="divide-y divide-gray-800">
+                    <!-- Results will be populated here by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Single Target Calculation -->
+        <div class="mt-10 p-6 bg-[#0d1117] rounded-lg border border-gray-700">
+            <h3 class="text-xl font-semibold text-gray-200 mb-4">Single Target Weight Check</h3>
+            <div class="grid sm:grid-cols-2 gap-4 items-end">
+                <div>
+                    <label for="targetPercentage" class="block text-sm font-medium text-gray-400 mb-1">Enter Specific Target Percentage (%)</label>
+                    <div class="relative">
+                        <input type="number" id="targetPercentage" placeholder="e.g., 72" value="95" min="1" max="100"
+                               class="w-full pr-12 pl-4 py-2 bg-[#161b22] border border-gray-600 rounded-lg focus:ring-green-500 focus:border-green-500 text-white"
+                               oninput="calculateSingleTarget()">
+                        <span class="absolute right-0 top-0 mt-2.5 mr-4 text-gray-500 font-semibold">%</span>
+                    </div>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-400 mb-1">Required Added Weight:</p>
+                    <p id="singleTargetResult" class="text-2xl font-bold text-green-400">0.00 lbs</p>
+                </div>
+            </div>
+        </div>
+
+        <footer class="mt-10 pt-4 border-t border-gray-800 text-center text-sm text-gray-500">
+            <p>Formula used: % * ((BW * BW_%) + MaxA) - BW. Results are rounded to two decimal places.</p>
+        </footer>
+
+    </div>
+
+    <script>
+        const BODY_WEIGHT_PERCENTAGE_DEFAULT = 0.95; // The constant 95% used in the base formula
+        const RESULTS_TABLE_BODY = document.getElementById('resultsTableBody');
+        const SINGLE_TARGET_RESULT = document.getElementById('singleTargetResult');
+
+        /**
+         * Calculates the required additional weight based on the user's inputs and a target percentage.
+         *
+         * Formula implemented:
+         * Required Added Weight = P * ((BW * BW_P) + MaxA) - BW
+         * Total Load = P * ((BW * BW_P) + MaxA)
+         * Where:
+         * P = Target Percentage (e.g., 0.75)
+         * BW = Body Weight (lbs)
+         * BW_P = Body Weight Percentage for the exercise (e.g., 0.95)
+         * MaxA = Max Added Weight (lbs)
+         *
+         * @param {number} targetPercent - The percentage of max load to target (e.g., 65 for 65%).
+         * @param {number} bodyWeight - The user's body weight in pounds.
+         * @param {number} maxWeight - The user's maximum additional weight lifted in pounds.
+         * @param {number} bwPercentage - The body weight percentage used in the exercise (e.g., 95).
+         * @returns {{addedWeight: number, totalLoad: number}} An object containing the required added weight (can be negative) and the total required load.
+         */
+        function calculateWeightForTarget(targetPercent, bodyWeight, maxWeight, bwPercentage) {
+            const P = targetPercent / 100;
+            const BW = parseFloat(bodyWeight);
+            const MaxA = parseFloat(maxWeight);
+            const BW_P = parseFloat(bwPercentage) / 100;
+
+            if (isNaN(BW) || isNaN(MaxA) || isNaN(P) || BW <= 0 || BW_P <= 0) {
+                return { addedWeight: 0, totalLoad: 0 };
+            }
+
+            // Calculate the maximum total load (Body Weight portion + Max Added Weight)
+            const maxTotalLoad = (BW * BW_P) + MaxA;
+            
+            // Calculate the target total load (Required Load)
+            const requiredLoad = P * maxTotalLoad;
+            
+            // Calculate the required added weight by subtracting the user's FULL body weight (as requested by the user's formula)
+            let requiredAddedWeight = requiredLoad - BW;
+
+            // Return both values. The addedWeight is not capped at zero.
+            return {
+                addedWeight: requiredAddedWeight,
+                totalLoad: requiredLoad
+            };
+        }
+
+        /**
+         * Main function to read inputs, calculate, and update the table and single target result.
+         */
+        function calculateWeight() {
+            const bodyWeightInput = document.getElementById('bodyWeight');
+            const maxWeightInput = document.getElementById('maxWeight');
+            const bwPercentageInput = document.getElementById('bodyWeightPercentage');
+            
+            const bodyWeight = bodyWeightInput.value || 0;
+            const maxWeight = maxWeightInput.value || 0;
+            const bwPercentage = bwPercentageInput.value || (BODY_WEIGHT_PERCENTAGE_DEFAULT * 100);
+
+            if (bodyWeight <= 0 || maxWeight < 0 || bwPercentage <= 0) {
+                RESULTS_TABLE_BODY.innerHTML = '<tr><td colspan="3" class="text-center p-4 text-red-400">Please enter valid positive values for Body Weight and Body Weight Percentage.</td></tr>';
+                return;
+            }
+
+            // 1. Generate the main table
+            let tableHTML = '';
+            for (let percent = 65; percent <= 100; percent += 5) {
+                const results = calculateWeightForTarget(percent, bodyWeight, maxWeight, bwPercentage);
+                const addedWeight = results.addedWeight;
+                const totalLoad = results.totalLoad;
+
+                // Determine color based on added weight (positive, negative, or zero)
+                let addedWeightColor = 'text-gray-400';
+                if (addedWeight > 0.01) {
+                    addedWeightColor = 'text-yellow-300'; // Yellow for positive weight
+                } else if (addedWeight < -0.01) {
+                    addedWeightColor = 'text-red-400'; // Red for negative weight
+                }
+
+                tableHTML += `
+                    <tr class="hover:bg-[#1f2837]">
+                        <td class="px-4 py-3 whitespace-nowrap">${percent}%</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-lg text-blue-300">
+                            ${totalLoad.toFixed(2)} lbs
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-lg ${addedWeightColor}">
+                            ${addedWeight.toFixed(2)} lbs
+                        </td>
+                    </tr>
+                `;
+            }
+            RESULTS_TABLE_BODY.innerHTML = tableHTML;
+
+            // 2. Update the single target check
+            calculateSingleTarget();
+        }
+
+        /**
+         * Calculates and displays the result for the optional single target input.
+         */
+        function calculateSingleTarget() {
+            const bodyWeight = document.getElementById('bodyWeight').value || 0;
+            const maxWeight = document.getElementById('maxWeight').value || 0;
+            const bwPercentage = document.getElementById('bodyWeightPercentage').value || (BODY_WEIGHT_PERCENTAGE_DEFAULT * 100);
+            const targetPercentageInput = document.getElementById('targetPercentage');
+            
+            const targetPercent = targetPercentageInput.value || 0;
+
+            const results = calculateWeightForTarget(targetPercent, bodyWeight, maxWeight, bwPercentage);
+            const addedWeight = results.addedWeight;
+
+            // Update color logic to reflect negative numbers
+            let addedWeightColor = 'text-gray-400';
+            if (addedWeight > 0.01) {
+                addedWeightColor = 'text-green-400'; // Green for positive weight
+            } else if (addedWeight < -0.01) {
+                addedWeightColor = 'text-red-400'; // Red for negative weight
+            }
+
+            SINGLE_TARGET_RESULT.textContent = `${addedWeight.toFixed(2)} lbs`;
+            SINGLE_TARGET_RESULT.className = `text-2xl font-bold ${addedWeightColor}`;
+        }
+
+        // Initialize calculation on load with default values
+        window.onload = () => {
+            // Set default value for the single target if it's empty
+            if (!document.getElementById('targetPercentage').value) {
+                document.getElementById('targetPercentage').value = 95;
+            }
+            calculateWeight();
+        };
+
+    </script>
+</body>
+</html>
