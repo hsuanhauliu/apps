@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Simple Ping Pong Scorer</title>
+    <!-- Configure Tailwind for Manual Dark Mode -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <!-- Load FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Teko:wght@300;500;700&family=Inter:wght@400;600&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            /* Default to dark mode colors in CSS to prevent flash, handled by Tailwind classes mostly */
+            height: 100vh;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        .score-font {
+            font-family: 'Teko', sans-serif;
+        }
+
+        .player-section {
+            position: relative;
+            transition: all 0.2s ease-out;
+            touch-action: manipulation;
+        }
+
+        .player-section:active {
+            filter: brightness(1.1);
+            /* Works for dark */
+            transform: scale(0.99);
+        }
+
+        /* In light mode, brightness(1.1) washes it out, so we invert logic slightly in CSS or rely on Tailwind active classes if possible. 
+
+        /* Serve Indicator Ball */
+        .serve-ball {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            background-color: #fbbf24;
+            /* Amber-400 */
+            border-radius: 50%;
+            box-shadow: 0 0 10px #fbbf24;
+            margin-left: 10px;
+            opacity: 0.2;
+            /* Dim when inactive */
+            transform: scale(0.8);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+
+        /* Dark mode hover */
+        .dark .serve-ball:hover {
+            border-color: white;
+        }
+
+        /* Light mode hover */
+        html:not(.dark) .serve-ball:hover {
+            border-color: #4b5563;
+        }
+
+        .serve-ball.active {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+
+        /* Modal Overlay */
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.85);
+            /* Stays dark for focus */
+            backdrop-filter: blur(5px);
+            z-index: 100;
+        }
+
+        /* Adjust overlay for light mode if preferred, but dark overlay is standard */
+        html:not(.dark) .modal-overlay {
+            background-color: rgba(255, 255, 255, 0.7);
+            border: 1px solid #e5e7eb;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 text-gray-900 dark:bg-[#111827] dark:text-white transition-colors duration-300">
+
+    <!-- ================= MODALS ================= -->
+
+    <!-- Confirm Reset Modal -->
+    <div id="confirmModal" class="modal-overlay fixed inset-0 hidden flex items-center justify-center p-4">
+        <div
+            class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl p-6 max-w-xs w-full text-center shadow-2xl">
+            <h3 class="text-xl font-bold mb-2 text-gray-900 dark:text-white">Reset Game?</h3>
+            <p class="text-gray-500 dark:text-gray-400 mb-6">Scores will return to 0-0.</p>
+            <div class="flex space-x-3">
+                <button onclick="closeModal('confirmModal')"
+                    class="flex-1 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">Cancel</button>
+                <button onclick="confirmResetGame()"
+                    class="flex-1 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 font-bold">Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Name Modal -->
+    <div id="nameModal" class="modal-overlay fixed inset-0 hidden flex items-center justify-center p-4">
+        <div
+            class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl p-6 max-w-xs w-full shadow-2xl">
+            <h3 class="text-xl font-bold mb-4 text-center text-gray-900 dark:text-white">Edit Name</h3>
+            <input type="text" id="nameInput"
+                class="w-full bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg p-3 text-gray-900 dark:text-white mb-4 focus:outline-none focus:border-blue-500 text-center"
+                maxlength="10">
+            <div class="flex space-x-3">
+                <button onclick="closeModal('nameModal')"
+                    class="flex-1 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">Cancel</button>
+                <button onclick="saveName()"
+                    class="flex-1 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 font-bold">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= APP LAYOUT ================= -->
+
+    <!-- Top Bar / Controls -->
+    <div
+        class="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center px-4 shrink-0 z-10 shadow-sm dark:shadow-md transition-colors duration-300">
+
+        <!-- Theme Toggle -->
+        <button onclick="toggleTheme()"
+            class="w-20 text-gray-400 hover:text-yellow-500 dark:hover:text-yellow-400 p-2 transition flex flex-col items-start">
+            <i id="themeIcon" class="fas fa-sun text-lg"></i>
+            <span id="themeText" class="text-[10px] uppercase font-bold mt-1">Light</span>
+        </button>
+
+        <h1 class="text-xl font-bold tracking-widest text-gray-400 dark:text-gray-500 uppercase">Ping Pong</h1>
+
+        <!-- Reset Button -->
+        <button onclick="askReset()"
+            class="w-20 text-gray-400 hover:text-gray-900 dark:hover:text-white p-2 transition flex flex-col items-end">
+            <i class="fas fa-undo text-lg"></i>
+            <span class="text-[10px] uppercase font-bold mt-1">Reset</span>
+        </button>
+    </div>
+
+    <!-- Main Game Area -->
+    <div class="flex-grow flex flex-col md:flex-row relative">
+
+        <!-- Player 1 Section -->
+        <div id="p1Area"
+            class="player-section flex-1 bg-gradient-to-b from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 border-b-4 md:border-b-0 md:border-r-4 border-gray-200 dark:border-gray-900 flex flex-col items-center justify-center relative select-none transition-colors duration-300"
+            onclick="addPoint(1)">
+
+            <!-- Name & Serve -->
+            <div class="absolute top-6 w-full text-center flex flex-col items-center z-10">
+                <div class="flex items-center justify-center cursor-pointer hover:bg-gray-100 dark:hover:bg-white/5 px-3 py-1 rounded transition"
+                    onclick="event.stopPropagation(); openNameModal(1)">
+                    <h2 id="p1Name"
+                        class="text-2xl font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider truncate max-w-[200px]">
+                        Player 1</h2>
+                    <i class="fas fa-pen text-xs text-gray-400 dark:text-gray-600 ml-2"></i>
+                </div>
+                <!-- Serve Ball (Clickable) -->
+                <div id="p1Serve" class="serve-ball mt-3" onclick="event.stopPropagation(); manualToggleServer()"
+                    title="Click to switch server"></div>
+            </div>
+
+            <!-- Big Score -->
+            <div id="p1Score"
+                class="text-[10rem] md:text-[12rem] leading-none font-bold score-font text-blue-600 dark:text-blue-500 drop-shadow-sm dark:drop-shadow-lg transition-all">
+                0</div>
+
+            <!-- Controls -->
+            <div class="absolute bottom-6 flex space-x-4 z-10">
+                <button onclick="event.stopPropagation(); subtractPoint(1)"
+                    class="w-14 h-14 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-500 dark:bg-gray-700/80 dark:text-gray-300 dark:hover:bg-gray-600 flex items-center justify-center shadow-md active:scale-95 transition border border-gray-300 dark:border-gray-600">
+                    <i class="fas fa-minus text-xl"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- VS Divider (Desktop Only) -->
+        <div class="hidden md:flex absolute inset-0 items-center justify-center pointer-events-none">
+            <div
+                class="bg-white dark:bg-gray-900 rounded-full p-2 border border-gray-200 dark:border-gray-700 z-10 shadow-xl transition-colors duration-300">
+                <span class="text-gray-400 dark:text-gray-500 font-bold text-sm px-2">VS</span>
+            </div>
+        </div>
+
+        <!-- Player 2 Section -->
+        <div id="p2Area"
+            class="player-section flex-1 bg-gradient-to-b from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 flex flex-col items-center justify-center relative select-none transition-colors duration-300"
+            onclick="addPoint(2)">
+
+            <!-- Name & Serve -->
+            <div class="absolute top-6 w-full text-center flex flex-col items-center z-10">
+                <div class="flex items-center justify-center cursor-pointer hover:bg-gray-100 dark:hover:bg-white/5 px-3 py-1 rounded transition"
+                    onclick="event.stopPropagation(); openNameModal(2)">
+                    <h2 id="p2Name"
+                        class="text-2xl font-bold text-red-600 dark:text-red-400 uppercase tracking-wider truncate max-w-[200px]">
+                        Player 2</h2>
+                    <i class="fas fa-pen text-xs text-gray-400 dark:text-gray-600 ml-2"></i>
+                </div>
+                <!-- Serve Ball (Clickable) -->
+                <div id="p2Serve" class="serve-ball mt-3" onclick="event.stopPropagation(); manualToggleServer()"
+                    title="Click to switch server"></div>
+            </div>
+
+            <!-- Big Score -->
+            <div id="p2Score"
+                class="text-[10rem] md:text-[12rem] leading-none font-bold score-font text-red-600 dark:text-red-500 drop-shadow-sm dark:drop-shadow-lg transition-all">
+                0</div>
+
+            <!-- Controls -->
+            <div class="absolute bottom-6 flex space-x-4 z-10">
+                <button onclick="event.stopPropagation(); subtractPoint(2)"
+                    class="w-14 h-14 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-500 dark:bg-gray-700/80 dark:text-gray-300 dark:hover:bg-gray-600 flex items-center justify-center shadow-md active:scale-95 transition border border-gray-300 dark:border-gray-600">
+                    <i class="fas fa-minus text-xl"></i>
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- State ---
+        let state = {
+            p1: { name: "Player 1", score: 0 },
+            p2: { name: "Player 2", score: 0 },
+            server: 1, // 1 or 2
+            firstServer: 1, // Who served first in the current game sequence
+        };
+
+        // --- DOM Elements ---
+        const els = {
+            p1Score: document.getElementById('p1Score'),
+            p2Score: document.getElementById('p2Score'),
+            p1Name: document.getElementById('p1Name'),
+            p2Name: document.getElementById('p2Name'),
+            p1Serve: document.getElementById('p1Serve'),
+            p2Serve: document.getElementById('p2Serve'),
+            p1Area: document.getElementById('p1Area'),
+            p2Area: document.getElementById('p2Area'),
+
+            // Theme
+            themeIcon: document.getElementById('themeIcon'),
+            themeText: document.getElementById('themeText'),
+
+            // Modals
+            confirmModal: document.getElementById('confirmModal'),
+            nameModal: document.getElementById('nameModal'),
+            nameInput: document.getElementById('nameInput')
+        };
+
+        let tempEditPlayer = 1;
+
+        // --- Initialization ---
+        function init() {
+            render();
+            // Optional: Check local storage for theme, but defaulting to dark for now
+            updateThemeUI();
+        }
+
+        // --- Theme Logic ---
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+            updateThemeUI();
+        }
+
+        function updateThemeUI() {
+            const isDark = document.documentElement.classList.contains('dark');
+            if (isDark) {
+                els.themeIcon.className = "fas fa-sun text-lg";
+                els.themeText.textContent = "Light";
+            } else {
+                els.themeIcon.className = "fas fa-moon text-lg";
+                els.themeText.textContent = "Dark";
+            }
+        }
+
+        // --- Gameplay Logic ---
+
+        function addPoint(player) {
+            if (player === 1) state.p1.score++;
+            else state.p2.score++;
+
+            updateServe();
+            render();
+        }
+
+        function subtractPoint(player) {
+            if (player === 1 && state.p1.score > 0) state.p1.score--;
+            else if (player === 2 && state.p2.score > 0) state.p2.score--;
+
+            updateServe();
+            render();
+        }
+
+        function manualToggleServer() {
+            // Toggling the server manually means we are essentially swapping who was supposed to serve first.
+            state.firstServer = (state.firstServer === 1) ? 2 : 1;
+            updateServe();
+            render();
+
+            // Visual feedback
+            const activeBall = state.server === 1 ? els.p1Serve : els.p2Serve;
+            activeBall.style.transform = "scale(1.5)";
+            setTimeout(() => activeBall.style.transform = "scale(1.1)", 200);
+        }
+
+        function updateServe() {
+            const totalPoints = state.p1.score + state.p2.score;
+            let serviceTurns = 0;
+
+            // Standard rule: Change every 2 points
+            // Deuce rule (>= 10-10): Change every 1 point
+
+            if (state.p1.score >= 10 && state.p2.score >= 10) {
+                // Calculate turns up to 20 (which is 10 service turns)
+                // Plus turns after 20 (every 1 point is a turn)
+                serviceTurns = 10 + (totalPoints - 20);
+            } else {
+                serviceTurns = Math.floor(totalPoints / 2);
+            }
+
+            // Even turns = firstServer serves. Odd turns = receiver serves.
+            state.server = (serviceTurns % 2 === 0) ? state.firstServer : (state.firstServer === 1 ? 2 : 1);
+        }
+
+        // --- Custom Modals for Reset/Edit ---
+
+        function askReset() {
+            els.confirmModal.classList.remove('hidden');
+        }
+
+        function confirmResetGame() {
+            state.p1.score = 0;
+            state.p2.score = 0;
+            state.server = 1;
+            state.firstServer = 1;
+
+            updateServe();
+            render();
+            closeModal('confirmModal');
+        }
+
+        function openNameModal(player) {
+            tempEditPlayer = player;
+            els.nameInput.value = player === 1 ? state.p1.name : state.p2.name;
+            els.nameModal.classList.remove('hidden');
+            setTimeout(() => els.nameInput.focus(), 100);
+        }
+
+        function saveName() {
+            const newName = els.nameInput.value.trim();
+            if (newName) {
+                if (tempEditPlayer === 1) state.p1.name = newName.substring(0, 12);
+                else state.p2.name = newName.substring(0, 12);
+            }
+            closeModal('nameModal');
+            render();
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+
+        // --- Rendering ---
+
+        function render() {
+            // Scores
+            els.p1Score.textContent = state.p1.score;
+            els.p2Score.textContent = state.p2.score;
+            els.p1Name.textContent = state.p1.name;
+            els.p2Name.textContent = state.p2.name;
+
+            // Serve Indicator Visuals
+            // We need to manage classes carefully so we don't overwrite the styling logic in CSS
+            if (state.server === 1) {
+                els.p1Serve.classList.add('active');
+                els.p2Serve.classList.remove('active');
+
+                // Highlight active area: 
+                // Dark Mode: bg-gray-800
+                // Light Mode: bg-white (vs gray-50 default)
+                // We toggle Tailwind classes
+
+                // P1 Active
+                els.p1Area.classList.add('dark:bg-gray-800', 'bg-white');
+                els.p1Area.classList.remove('dark:bg-gray-900', 'bg-gray-50');
+
+                // P2 Inactive
+                els.p2Area.classList.add('dark:bg-gray-900', 'bg-gray-50');
+                els.p2Area.classList.remove('dark:bg-gray-800', 'bg-white');
+
+            } else {
+                els.p1Serve.classList.remove('active');
+                els.p2Serve.classList.add('active');
+
+                // P2 Active
+                els.p2Area.classList.add('dark:bg-gray-800', 'bg-white');
+                els.p2Area.classList.remove('dark:bg-gray-900', 'bg-gray-50');
+
+                // P1 Inactive
+                els.p1Area.classList.add('dark:bg-gray-900', 'bg-gray-50');
+                els.p1Area.classList.remove('dark:bg-gray-800', 'bg-white');
+            }
+
+            // Deuce Coloring (Visual Only)
+            const isDeuce = state.p1.score >= 10 && state.p2.score >= 10 && state.p1.score === state.p2.score;
+
+            if (isDeuce) {
+                els.p1Score.classList.remove('text-blue-600', 'dark:text-blue-500');
+                els.p2Score.classList.remove('text-red-600', 'dark:text-red-500');
+
+                els.p1Score.classList.add('text-yellow-500', 'dark:text-yellow-400');
+                els.p2Score.classList.add('text-yellow-500', 'dark:text-yellow-400');
+            } else {
+                els.p1Score.classList.remove('text-yellow-500', 'dark:text-yellow-400');
+                els.p2Score.classList.remove('text-yellow-500', 'dark:text-yellow-400');
+
+                els.p1Score.classList.add('text-blue-600', 'dark:text-blue-500');
+                els.p2Score.classList.add('text-red-600', 'dark:text-red-500');
+            }
+        }
+
+        window.onload = init;
+
+    </script>
+</body>
+
+</html>
