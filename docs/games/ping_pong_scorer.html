@@ -44,8 +44,6 @@
             transform: scale(0.99);
         }
 
-        /* In light mode, brightness(1.1) washes it out, so we invert logic slightly in CSS or rely on Tailwind active classes if possible. 
-
         /* Serve Indicator Ball */
         .serve-ball {
             display: inline-block;
@@ -155,11 +153,13 @@
     </div>
 
     <!-- Main Game Area -->
-    <div class="flex-grow flex flex-col md:flex-row relative">
+    <!-- Added landscape:flex-row to enable side-by-side on mobile landscape -->
+    <div class="flex-grow flex flex-col landscape:flex-row md:flex-row relative">
 
         <!-- Player 1 Section -->
+        <!-- Adjusted borders: landscape removes bottom border and adds right border -->
         <div id="p1Area"
-            class="player-section flex-1 bg-gradient-to-b from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 border-b-4 md:border-b-0 md:border-r-4 border-gray-200 dark:border-gray-900 flex flex-col items-center justify-center relative select-none transition-colors duration-300"
+            class="player-section flex-1 bg-gradient-to-b from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 border-b-4 landscape:border-b-0 landscape:border-r-4 md:border-b-0 md:border-r-4 border-gray-200 dark:border-gray-900 flex flex-col items-center justify-center relative select-none transition-colors duration-300"
             onclick="addPoint(1)">
 
             <!-- Name & Serve -->
@@ -177,8 +177,9 @@
             </div>
 
             <!-- Big Score -->
+            <!-- Added landscape:text-[8rem] to fit score on shorter screens -->
             <div id="p1Score"
-                class="text-[10rem] md:text-[12rem] leading-none font-bold score-font text-blue-600 dark:text-blue-500 drop-shadow-sm dark:drop-shadow-lg transition-all">
+                class="text-[10rem] landscape:text-[8rem] md:text-[12rem] leading-none font-bold score-font text-blue-600 dark:text-blue-500 drop-shadow-sm dark:drop-shadow-lg transition-all">
                 0</div>
 
             <!-- Controls -->
@@ -190,8 +191,9 @@
             </div>
         </div>
 
-        <!-- VS Divider (Desktop Only) -->
-        <div class="hidden md:flex absolute inset-0 items-center justify-center pointer-events-none">
+        <!-- VS Divider (Desktop & Landscape) -->
+        <!-- Added landscape:flex to show VS on mobile landscape -->
+        <div class="hidden landscape:flex md:flex absolute inset-0 items-center justify-center pointer-events-none">
             <div
                 class="bg-white dark:bg-gray-900 rounded-full p-2 border border-gray-200 dark:border-gray-700 z-10 shadow-xl transition-colors duration-300">
                 <span class="text-gray-400 dark:text-gray-500 font-bold text-sm px-2">VS</span>
@@ -218,8 +220,9 @@
             </div>
 
             <!-- Big Score -->
+            <!-- Added landscape:text-[8rem] -->
             <div id="p2Score"
-                class="text-[10rem] md:text-[12rem] leading-none font-bold score-font text-red-600 dark:text-red-500 drop-shadow-sm dark:drop-shadow-lg transition-all">
+                class="text-[10rem] landscape:text-[8rem] md:text-[12rem] leading-none font-bold score-font text-red-600 dark:text-red-500 drop-shadow-sm dark:drop-shadow-lg transition-all">
                 0</div>
 
             <!-- Controls -->
