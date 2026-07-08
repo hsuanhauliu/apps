@@ -1,564 +1,573 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chessboard Simulator</title>
+    <title>Chessboard Studio — Set Up & Explore Positions</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --accent: #0891b2;
+            --accent-hover: #0e7490;
+            --ink: #0f172a;
+            --muted: #64748b;
+            --line: #e2e8f0;
+            --bg: #f1f5f9;
+            --surface: #ffffff;
+            --ring: rgba(8, 145, 178, .18);
+            --light-sq: #f0d9b5;
+            --dark-sq: #b58863;
+        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body {
-            font-family: 'Inter', sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
-            min-height: 100vh;
-            margin: 0;
-            padding-top: 20px;
-            background-color: #f0f0f0;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            margin: 0; color: var(--ink); background: var(--bg);
+            background-image:
+                radial-gradient(50rem 40rem at 108% -10%, #e0f2fe 0%, rgba(224,242,254,0) 55%),
+                radial-gradient(45rem 40rem at -8% 0%, #ecfeff 0%, rgba(236,254,255,0) 50%);
+            background-attachment: fixed;
+            -webkit-font-smoothing: antialiased;
         }
+        .btn { display:inline-flex; align-items:center; justify-content:center; gap:.45rem; font-weight:600; font-size:.875rem; padding:.55rem .9rem; border-radius:.65rem; cursor:pointer; border:1px solid transparent; transition:all .15s ease; white-space:nowrap; }
+        .btn:disabled { opacity:.45; cursor:not-allowed; }
+        .btn svg { width:1.05rem; height:1.05rem; }
+        .btn-primary { background:var(--accent); color:#fff; }
+        .btn-primary:not(:disabled):hover { background:var(--accent-hover); }
+        .btn-ghost { background:var(--surface); color:var(--ink); border-color:var(--line); }
+        .btn-ghost:not(:disabled):hover { background:#f8fafc; border-color:#cbd5e1; }
+        .btn-danger { background:#fff; color:#e11d48; border-color:#fecdd3; }
+        .btn-danger:not(:disabled):hover { background:#fff1f2; }
+        .btn-icon { padding:.5rem; border-radius:.6rem; }
 
-        .header-text {
-            margin-bottom: 15px;
-            /* Adjusted margin */
-            font-size: 1.75rem;
-            /* Increased size */
-            color: #333;
-        }
+        .card { background:var(--surface); border:1px solid var(--line); border-radius:1rem; box-shadow:0 1px 2px rgba(15,23,42,.04); }
 
-        .instructions {
-            margin-bottom: 20px;
-            /* Adjusted margin */
-            color: #555;
-            text-align: center;
-            max-width: 650px;
-            font-size: 1.05rem;
-            /* Increased size */
-        }
-
-        .controls {
-            margin-bottom: 20px;
-            /* Adjusted margin */
-            display: flex;
-            gap: 12px;
-        }
-
-        .control-button {
-            background-color: #4a5568;
-            color: white;
-            padding: 10px 20px;
-            /* Increased padding */
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 1rem;
-            /* Increased size */
-            transition: background-color 0.2s;
-        }
-
-        .control-button:hover {
-            background-color: #2d3748;
-        }
-
-        .control-button.restart-button {
-            background-color: #48bb78;
-        }
-
-        .control-button.restart-button:hover {
-            background-color: #38a169;
-        }
-
-
-        .main-container {
-            display: flex;
-            flex-direction: row;
-            align-items: flex-start;
-            gap: 25px;
-            /* Increased gap */
-        }
-
-        @media (max-width: 860px) {
-
-            /* Adjusted breakpoint for stacking */
-            .main-container {
-                flex-direction: column;
-                align-items: center;
-            }
-
-            .piece-palette {
-                margin-bottom: 25px;
-                width: 90vw;
-                max-width: 450px;
-                /* Adjusted max-width */
-                order: -1;
-            }
-        }
-
-        /* Piece Palette Styles */
-        .piece-palette {
-            background-color: #e0e0e0;
-            padding: 20px;
-            /* Increased padding */
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            width: 200px;
-            /* Slightly wider palette */
-        }
-
-        .piece-palette h3 {
-            text-align: center;
-            margin-top: 0;
-            margin-bottom: 15px;
-            /* Increased margin */
-            color: #333;
-            font-size: 1.25rem;
-            /* Increased size */
-        }
-
-        .palette-columns {
-            display: flex;
-            justify-content: space-around;
-            gap: 20px;
-            /* Increased gap */
-        }
-
-        .palette-column {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-            /* Increased gap */
-        }
-
-        .palette-piece {
-            font-size: 32px;
-            /* Increased size */
-            cursor: grab;
-            padding: 6px;
-            /* Adjusted padding */
-            border-radius: 4px;
-            background-color: #f9f9f9;
-            border: 1px solid #ccc;
-            min-width: 45px;
-            /* Adjusted min-width */
-            text-align: center;
-            user-select: none;
-        }
-
-        .palette-piece:hover {
-            background-color: #d0d0d0;
-        }
-
-        .palette-piece:active {
-            cursor: grabbing;
-        }
-
-
-        /* Chessboard Styles */
+        /* Board */
         .chess-board {
-            display: grid;
-            grid-template-columns: repeat(8, 1fr);
-            grid-template-rows: repeat(8, 1fr);
-            width: 480px;
-            /* Increased size */
-            height: 480px;
-            /* Increased size */
-            border: 3px solid #333;
-            /* Slightly thicker border */
-            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
-            border-radius: 4px;
+            --sq: min(92vw, 520px);
+            width: var(--sq); height: var(--sq);
+            display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr);
+            border-radius: .5rem; overflow: hidden;
+            box-shadow: 0 12px 32px -10px rgba(15,23,42,.35), 0 0 0 1px rgba(15,23,42,.06);
+            touch-action: manipulation;
         }
-
-        @media (max-width: 540px) {
-
-            /* Adjusted breakpoint for board scaling */
-            .chess-board {
-                width: 90vw;
-                height: 90vw;
-                max-width: 480px;
-                max-height: 480px;
-            }
-        }
-
+        @media (min-width: 1024px) { .chess-board { --sq: 560px; } }
         .square {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 38px;
-            /* Increased piece size on board */
-            user-select: none;
-            position: relative;
+            display:flex; align-items:center; justify-content:center; position:relative;
+            font-size: calc(var(--sq) / 8 * 0.74); line-height:1; user-select:none; cursor:pointer;
         }
+        .square.light { background: var(--light-sq); }
+        .square.dark  { background: var(--dark-sq); }
+        .square.sel::after { content:""; position:absolute; inset:0; background:var(--accent); opacity:.32; mix-blend-mode:multiply; }
+        .square.hint::before { content:""; position:absolute; inset:14%; border-radius:50%; background:rgba(8,145,178,.28); }
+        .square:hover { box-shadow: inset 0 0 0 3px rgba(8,145,178,.5); }
+        body.placing .square:hover { box-shadow: inset 0 0 0 3px rgba(8,145,178,.7); }
+        body.erasing .square:hover { box-shadow: inset 0 0 0 3px rgba(225,29,72,.6); }
 
-        .square.light {
-            background-color: #f0d9b5;
+        .piece { cursor:grab; position:relative; z-index:1; width:86%; height:86%; display:flex; }
+        .piece:active { cursor:grabbing; }
+        /* Pieces render as SVG text so they centre reliably on every platform */
+        .piece-svg { width:100%; height:100%; display:block; overflow:visible; pointer-events:none; }
+        .piece-svg text { font-family:'Segoe UI Symbol','Noto Sans Symbols2','Apple Symbols','DejaVu Sans',sans-serif; }
+        .piece-svg.white text { fill:#fbfcfe; stroke:#475569; stroke-width:3.2; paint-order:stroke; stroke-linejoin:round; }
+        .piece-svg.black text { fill:#161c26; stroke:#0b0f17; stroke-width:2.4; paint-order:stroke; stroke-linejoin:round; }
+
+        .coordinate { position:absolute; font-size:calc(var(--sq)/8*0.16); font-weight:600; pointer-events:none; opacity:.6; }
+        .coordinate.file { bottom:2px; right:4px; }
+        .coordinate.rank { top:2px; left:4px; }
+        .light .coordinate { color:#8a6d47; }
+        .dark .coordinate { color:#f0d9b5; }
+        .chess-board.no-coords .coordinate { display:none; }
+
+        /* Palette */
+        .palette-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:.4rem; }
+        .palette-piece {
+            aspect-ratio:1; display:flex; align-items:center; justify-content:center;
+            font-size:1.85rem; line-height:1; border-radius:.6rem; cursor:pointer;
+            background:#f8fafc; border:1.5px solid var(--line); transition:all .12s ease; user-select:none;
         }
-
-        .square.dark {
-            background-color: #b58863;
+        .palette-piece:hover { border-color:#93c5fd; background:#f0f9ff; }
+        .palette-piece.active { border-color:var(--accent); background:#ecfeff; box-shadow:0 0 0 2px var(--ring); }
+        .palette-piece .piece-svg { width:78%; height:78%; }
+        .tool-btn {
+            display:flex; align-items:center; justify-content:center; gap:.4rem; padding:.5rem; border-radius:.6rem;
+            font-size:.8rem; font-weight:600; cursor:pointer; border:1.5px solid var(--line); background:#f8fafc; color:#475569; transition:all .12s;
         }
+        .tool-btn:hover { border-color:#cbd5e1; }
+        .tool-btn.active { border-color:var(--accent); background:#ecfeff; color:var(--accent-hover); box-shadow:0 0 0 2px var(--ring); }
+        .tool-btn.erase.active { border-color:#e11d48; background:#fff1f2; color:#e11d48; box-shadow:0 0 0 2px rgba(225,29,72,.15); }
+        .tool-btn svg { width:1rem; height:1rem; }
+        .palette-drop-hint { transition:all .15s; }
+        #palette-panel.trash-armed { outline:2px dashed #e11d48; outline-offset:-6px; background:#fff1f2; }
 
-        .piece {
-            cursor: grab;
-            line-height: 1;
-        }
+        .field { width:100%; padding:.55rem .7rem; font-size:.85rem; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius:.6rem; outline:none; transition:border-color .15s, box-shadow .15s; }
+        .field:focus { border-color:#7dd3fc; box-shadow:0 0 0 4px var(--ring); }
+        .field.invalid { border-color:#fda4b4; box-shadow:0 0 0 4px rgba(225,29,72,.15); }
+        .switch { display:inline-flex; align-items:center; gap:.5rem; font-size:.85rem; font-weight:500; color:#475569; cursor:pointer; }
+        .switch input { width:1.05rem; height:1.05rem; accent-color:var(--accent); cursor:pointer; }
 
-        .piece:active {
-            cursor: grabbing;
-        }
+        /* Context menu */
+        #context-menu { position:fixed; z-index:1000; display:none; min-width:210px; max-height:80vh; overflow:auto;
+            background:#fff; border:1px solid var(--line); border-radius:.7rem; box-shadow:0 12px 34px rgba(15,23,42,.22); padding:.35rem; }
+        .ctx-item { display:flex; align-items:center; gap:.6rem; padding:.5rem .6rem; border-radius:.5rem; cursor:pointer; font-size:.85rem; }
+        .ctx-item:hover { background:#f1f5f9; }
+        .ctx-item.danger { color:#e11d48; }
+        .ctx-item.danger:hover { background:#fff1f2; }
+        .ctx-item .g { font-size:1.15rem; width:1.3rem; text-align:center; }
+        .ctx-sep { height:1px; background:var(--line); margin:.3rem .2rem; }
+        .ctx-head { font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); padding:.4rem .6rem .2rem; }
+        .ctx-pieces { display:grid; grid-template-columns:repeat(6,1fr); gap:.15rem; padding:.1rem .3rem .3rem; }
+        .ctx-pieces div { display:flex; align-items:center; justify-content:center; padding:.25rem 0; border-radius:.4rem; cursor:pointer; }
+        .ctx-pieces div:hover { background:#f1f5f9; }
+        .ctx-pieces .piece-svg { width:1.7rem; height:1.7rem; }
 
-        .coordinate {
-            position: absolute;
-            font-size: 11px;
-            /* Slightly larger coordinates */
-            color: rgba(0, 0, 0, 0.4);
-            pointer-events: none;
-        }
+        /* Modal */
+        .modal-back { position:fixed; inset:0; background:rgba(15,23,42,.45); backdrop-filter:blur(3px); display:none; align-items:center; justify-content:center; z-index:1100; padding:1rem; }
+        .modal-back.show { display:flex; }
+        .modal { background:#fff; border-radius:1rem; box-shadow:0 24px 60px rgba(0,0,0,.3); width:100%; max-width:400px; padding:1.4rem; }
 
-        .coordinate.file {
-            bottom: 3px;
-            right: 4px;
-        }
-
-        /* Adjusted position */
-        .coordinate.rank {
-            top: 3px;
-            left: 4px;
-        }
-
-        /* Adjusted position */
-        .dark .coordinate {
-            color: rgba(255, 255, 255, 0.4);
-        }
-
-        /* Custom Context Menu */
-        #context-menu {
-            position: absolute;
-            z-index: 1000;
-            background-color: white;
-            border: 1px solid #ccc;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-            border-radius: 5px;
-            padding: 6px 0;
-            /* Adjusted padding */
-            display: none;
-            min-width: 200px;
-            /* Increased min-width */
-        }
-
-        #context-menu ul {
-            list-style: none;
-            margin: 0;
-            padding: 0;
-        }
-
-        #context-menu li {
-            padding: 10px 18px;
-            cursor: pointer;
-            font-size: 1rem;
-        }
-
-        /* Increased padding & font */
-        #context-menu li:hover {
-            background-color: #e9e9e9;
-        }
-
-        #context-menu li .piece-char {
-            margin-right: 10px;
-            font-size: 1.2rem;
-        }
-
-        /* Increased size & margin */
+        .toast { position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(20px); opacity:0; background:#0f172a; color:#fff; padding:.7rem 1.1rem; border-radius:.7rem; font-size:.85rem; box-shadow:0 8px 24px rgba(0,0,0,.25); transition:all .25s; pointer-events:none; z-index:1200; }
+        .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+        .toast.err { background:#be123c; }
     </style>
 </head>
-
-<body>
-    <h1 class="header-text">Chessboard Simulator</h1>
-    <p class="instructions">
-        Drag pieces from the palette or right-click on a square to add pieces.
-    </p>
-    <div class="controls">
-        <button id="restart-board-button" class="control-button restart-button">Restart</button>
-        <button id="clear-board-button" class="control-button">Clear</button>
-    </div>
-
-    <div class="main-container">
-        <div id="piece-palette" class="piece-palette">
-            <h3>Piece Palette</h3>
-            <div class="palette-columns">
-                <div id="white-pieces-palette" class="palette-column">
+<body class="min-h-screen">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+        <!-- Header -->
+        <header class="flex items-center justify-between gap-3 mb-6">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-cyan-600 flex items-center justify-center text-white text-2xl shadow-sm shadow-cyan-200 leading-none">♞</div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight">Chessboard Studio</h1>
+                    <p class="text-xs sm:text-sm text-slate-500 -mt-0.5">Set up any position, then share it as FEN — all in your browser.</p>
                 </div>
-                <div id="black-pieces-palette" class="palette-column">
+            </div>
+            <div class="flex items-center gap-1.5">
+                <button id="undo-btn" class="btn btn-ghost btn-icon" title="Undo (Ctrl/⌘+Z)" disabled>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-1"/></svg>
+                </button>
+                <button id="redo-btn" class="btn btn-ghost btn-icon" title="Redo (Ctrl/⌘+Shift+Z)" disabled>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 14l5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h1"/></svg>
+                </button>
+                <button id="flip-btn" class="btn btn-ghost btn-icon" title="Flip board">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3M3 12h18"/></svg>
+                </button>
+            </div>
+        </header>
+
+        <div class="grid lg:grid-cols-[300px_1fr] gap-5 items-start">
+            <!-- Palette / tools -->
+            <div id="palette-panel" class="card p-4 order-1 lg:order-none">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-sm font-semibold text-slate-700">Pieces</h2>
+                    <span class="text-[11px] text-slate-400 palette-drop-hint">drag a board piece here to remove</span>
+                </div>
+                <div class="grid grid-cols-2 gap-1.5 mb-3">
+                    <button id="tool-move" class="tool-btn active">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l7 18 2.5-7.5L20 11z"/></svg> Select / Move
+                    </button>
+                    <button id="tool-erase" class="tool-btn erase">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20H7L3 16a2 2 0 0 1 0-3l9-9a2 2 0 0 1 3 0l5 5a2 2 0 0 1 0 3l-8 8"/><path d="M9 12l5 5"/></svg> Erase
+                    </button>
+                </div>
+                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1.5">White</p>
+                <div id="white-palette" class="palette-grid mb-3"></div>
+                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1.5">Black</p>
+                <div id="black-palette" class="palette-grid mb-3"></div>
+                <div id="tool-hint" class="text-xs text-slate-500 leading-relaxed bg-slate-50 border border-slate-200 rounded-lg p-2.5"></div>
+            </div>
+
+            <!-- Board + FEN -->
+            <div class="flex flex-col items-center gap-4 order-2 lg:order-none">
+                <div id="chess-board" class="chess-board"></div>
+
+                <div class="card p-3 w-full max-w-[560px]">
+                    <label class="text-xs font-semibold text-slate-600 mb-1.5 block">FEN (position)</label>
+                    <div class="flex gap-2">
+                        <input id="fen-input" class="field" spellcheck="false" autocomplete="off">
+                        <button id="copy-fen" class="btn btn-ghost" title="Copy FEN">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                            <span class="hidden sm:inline">Copy</span>
+                        </button>
+                        <button id="load-fen" class="btn btn-primary" title="Load this FEN onto the board">Load</button>
+                    </div>
+                    <div class="flex items-center justify-between mt-3 flex-wrap gap-2">
+                        <label class="switch"><input type="checkbox" id="coord-toggle" checked> Show coordinates</label>
+                        <div class="flex gap-2">
+                            <button id="reset-btn" class="btn btn-ghost" title="Reset to the starting position">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+                                Start position
+                            </button>
+                            <button id="clear-btn" class="btn btn-danger" title="Remove all pieces">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                                Clear
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-
-        <div id="chess-board" class="chess-board"></div>
     </div>
 
-    <div id="context-menu">
-        <ul>
-        </ul>
+    <!-- Context menu -->
+    <div id="context-menu"></div>
+
+    <!-- Confirm modal -->
+    <div id="modal-back" class="modal-back">
+        <div class="modal">
+            <h3 id="modal-title" class="text-base font-semibold mb-1">Are you sure?</h3>
+            <p id="modal-msg" class="text-sm text-slate-500 mb-5"></p>
+            <div class="flex justify-end gap-2">
+                <button id="modal-cancel" class="btn btn-ghost">Cancel</button>
+                <button id="modal-confirm" class="btn btn-primary">Confirm</button>
+            </div>
+        </div>
     </div>
+
+    <div id="toast" class="toast"></div>
 
     <script>
-        const boardElement = document.getElementById('chess-board');
-        const contextMenuElement = document.getElementById('context-menu');
-        const contextMenuList = contextMenuElement.querySelector('ul');
-        const whitePiecesPalette = document.getElementById('white-pieces-palette');
-        const blackPiecesPalette = document.getElementById('black-pieces-palette');
-        const clearBoardButton = document.getElementById('clear-board-button');
-        const restartBoardButton = document.getElementById('restart-board-button');
+    const $ = (id) => document.getElementById(id);
 
+    // ---------- Data ----------
+    const GLYPH = { K: '♚', Q: '♛', R: '♜', B: '♝', N: '♞', P: '♟' };
+    const NAMES = { K: 'King', Q: 'Queen', R: 'Rook', B: 'Bishop', N: 'Knight', P: 'Pawn' };
+    const ORDER = ['K', 'Q', 'R', 'B', 'N', 'P'];
+    const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+    const START = [
+        ['bR','bN','bB','bQ','bK','bB','bN','bR'],
+        ['bP','bP','bP','bP','bP','bP','bP','bP'],
+        [null,null,null,null,null,null,null,null],
+        [null,null,null,null,null,null,null,null],
+        [null,null,null,null,null,null,null,null],
+        [null,null,null,null,null,null,null,null],
+        ['wP','wP','wP','wP','wP','wP','wP','wP'],
+        ['wR','wN','wB','wQ','wK','wB','wN','wR'],
+    ];
+    const clone = (b) => b.map(row => row.slice());
+    const colorOf = (k) => k[0] === 'w' ? 'white' : 'black';
+    const typeOf = (k) => k[1];
 
-        let targetSquareElement = null;
+    // Render a piece glyph inside an SVG so it's centred consistently everywhere.
+    function makePieceSVG(key) {
+        const ns = 'http://www.w3.org/2000/svg';
+        const svg = document.createElementNS(ns, 'svg');
+        svg.setAttribute('viewBox', '0 0 100 100');
+        svg.setAttribute('class', 'piece-svg ' + colorOf(key));
+        const t = document.createElementNS(ns, 'text');
+        t.setAttribute('x', '50'); t.setAttribute('y', '50');
+        t.setAttribute('text-anchor', 'middle');
+        t.setAttribute('dominant-baseline', 'central');
+        t.setAttribute('font-size', '84');
+        t.textContent = GLYPH[typeOf(key)] + '︎'; // VS-15 forces monochrome text (no emoji)
+        svg.appendChild(t);
+        return svg;
+    }
 
-        const PIECES = {
-            'wK': { unicode: '♔', name: 'White King', color: 'white' },
-            'wQ': { unicode: '♕', name: 'White Queen', color: 'white' },
-            'wR': { unicode: '♖', name: 'White Rook', color: 'white' },
-            'wB': { unicode: '♗', name: 'White Bishop', color: 'white' },
-            'wN': { unicode: '♘', name: 'White Knight', color: 'white' },
-            'wP': { unicode: '♙', name: 'White Pawn', color: 'white' },
-            'bK': { unicode: '♚', name: 'Black King', color: 'black' },
-            'bQ': { unicode: '♛', name: 'Black Queen', color: 'black' },
-            'bR': { unicode: '♜', name: 'Black Rook', color: 'black' },
-            'bB': { unicode: '♝', name: 'Black Bishop', color: 'black' },
-            'bN': { unicode: '♞', name: 'Black Knight', color: 'black' },
-            'bP': { unicode: '♟', name: 'Black Pawn', color: 'black' },
-            'empty': { unicode: '', name: 'Clear Square', color: 'none' }
-        };
+    // ---------- State ----------
+    let board = clone(START);
+    let orientation = 'white';
+    let tool = null;          // pieceKey to place, or 'erase', or null (select/move)
+    let selected = null;      // {r,c} source when moving
+    let showCoords = true;
+    let undoStack = [], redoStack = [];
+    const boardEl = $('chess-board');
 
-        const initialBoardSetup = [
-            ['bR', 'bN', 'bB', 'bQ', 'bK', 'bB', 'bN', 'bR'],
-            ['bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP'],
-            [null, null, null, null, null, null, null, null],
-            [null, null, null, null, null, null, null, null],
-            [null, null, null, null, null, null, null, null],
-            [null, null, null, null, null, null, null, null],
-            ['wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP'],
-            ['wR', 'wN', 'wB', 'wQ', 'wK', 'wB', 'wN', 'wR']
-        ];
+    // ---------- Toast ----------
+    let toastTimer;
+    function toast(msg, isErr) {
+        const t = $('toast'); t.textContent = msg;
+        t.classList.toggle('err', !!isErr); t.classList.add('show');
+        clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+    }
 
+    // ---------- History ----------
+    function record() { undoStack.push(clone(board)); if (undoStack.length > 100) undoStack.shift(); redoStack = []; }
+    function updateHistoryButtons() { $('undo-btn').disabled = !undoStack.length; $('redo-btn').disabled = !redoStack.length; }
+    function undo() { if (!undoStack.length) return; redoStack.push(clone(board)); board = undoStack.pop(); selected = null; afterChange(); }
+    function redo() { if (!redoStack.length) return; undoStack.push(clone(board)); board = redoStack.pop(); selected = null; afterChange(); }
 
-        function createBoard() {
-            boardElement.innerHTML = '';
-            const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-            const ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
+    function afterChange() { renderBoard(); updateFEN(); updateHistoryButtons(); }
 
-            for (let r = 0; r < 8; r++) {
-                for (let c = 0; c < 8; c++) {
-                    const square = document.createElement('div');
-                    square.classList.add('square');
-                    square.classList.add((r + c) % 2 === 0 ? 'light' : 'dark');
-                    square.dataset.row = r;
-                    square.dataset.col = c;
-                    square.dataset.algebraic = files[c] + ranks[r];
+    // ---------- Rendering ----------
+    function renderBoard() {
+        boardEl.innerHTML = '';
+        boardEl.classList.toggle('no-coords', !showCoords);
+        for (let di = 0; di < 8; di++) {
+            for (let dj = 0; dj < 8; dj++) {
+                const r = orientation === 'white' ? di : 7 - di;
+                const c = orientation === 'white' ? dj : 7 - dj;
+                const sq = document.createElement('div');
+                sq.className = 'square ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
+                sq.dataset.r = r; sq.dataset.c = c;
+                if (selected && selected.r === r && selected.c === c) sq.classList.add('sel');
 
-                    const rankLabel = document.createElement('span');
-                    rankLabel.classList.add('coordinate', 'rank');
-                    rankLabel.textContent = ranks[r];
-                    if (c === 0) square.appendChild(rankLabel);
+                if (dj === 0) sq.appendChild(coord('rank', 8 - r));
+                if (di === 7) sq.appendChild(coord('file', FILES[c]));
 
-                    const fileLabel = document.createElement('span');
-                    fileLabel.classList.add('coordinate', 'file');
-                    fileLabel.textContent = files[c];
-                    if (r === 7) square.appendChild(fileLabel);
-
-                    square.addEventListener('dragover', handleDragOver);
-                    square.addEventListener('drop', handleDropOnSquare);
-                    square.addEventListener('contextmenu', handleRightClick);
-                    boardElement.appendChild(square);
-
-                    const initialPieceKey = initialBoardSetup[r][c];
-                    if (initialPieceKey && PIECES[initialPieceKey]) {
-                        addPieceToSquare(PIECES[initialPieceKey].unicode, initialPieceKey, square);
-                    }
+                const key = board[r][c];
+                if (key) {
+                    const p = document.createElement('span');
+                    p.className = 'piece ' + colorOf(key);
+                    p.draggable = true;
+                    p.appendChild(makePieceSVG(key));
+                    sq.appendChild(p);
                 }
+                boardEl.appendChild(sq);
             }
         }
+    }
+    function coord(kind, text) {
+        const s = document.createElement('span');
+        s.className = 'coordinate ' + kind; s.textContent = text; return s;
+    }
 
-        function populatePiecePalette() {
-            whitePiecesPalette.innerHTML = '';
-            blackPiecesPalette.innerHTML = '';
+    function updateToolUI() {
+        document.body.classList.toggle('placing', tool && tool !== 'erase');
+        document.body.classList.toggle('erasing', tool === 'erase');
+        $('tool-move').classList.toggle('active', tool === null);
+        $('tool-erase').classList.toggle('active', tool === 'erase');
+        document.querySelectorAll('.palette-piece').forEach(p => p.classList.toggle('active', p.dataset.key === tool));
+        let hint;
+        if (tool === 'erase') hint = 'Eraser active — click any square to remove its piece. Pick “Select / Move” to stop.';
+        else if (tool) hint = `Placing ${colorOf(tool) === 'white' ? 'White' : 'Black'} ${NAMES[typeOf(tool)]} — click squares to place. Click the piece again to stop.`;
+        else hint = 'Click a piece to place it, or click a piece on the board to pick it up and move it. Right-click a square for more options.';
+        $('tool-hint').textContent = hint;
+    }
 
-            for (const key in PIECES) {
-                if (key === 'empty') continue;
-
-                const pieceData = PIECES[key];
-                const pieceElement = document.createElement('div');
-                pieceElement.classList.add('palette-piece');
-                pieceElement.textContent = pieceData.unicode;
-                pieceElement.draggable = true;
-                pieceElement.dataset.pieceKey = key;
-
-                pieceElement.addEventListener('dragstart', handleDragStartPalettePiece);
-
-                if (pieceData.color === 'white') {
-                    whitePiecesPalette.appendChild(pieceElement);
-                } else if (pieceData.color === 'black') {
-                    blackPiecesPalette.appendChild(pieceElement);
-                }
-            }
-        }
-
-        // --- Drag and Drop Handlers ---
-        function handleDragStartPalettePiece(event) {
-            event.dataTransfer.setData('text/plain', event.target.dataset.pieceKey);
-            event.dataTransfer.setData('application/drag-source', 'palette');
-            event.dataTransfer.effectAllowed = 'copy';
-        }
-
-        function handleDragStartBoardPiece(event) {
-            const pieceKey = event.target.dataset.pieceKey;
-            const sourceSquare = event.target.parentElement;
-
-            event.dataTransfer.setData('text/plain', pieceKey);
-            event.dataTransfer.setData('application/drag-source', 'board');
-            event.dataTransfer.setData('application/source-square-coords', `${sourceSquare.dataset.row},${sourceSquare.dataset.col}`);
-            event.dataTransfer.effectAllowed = 'move';
-        }
-
-
-        function handleDragOver(event) {
-            event.preventDefault();
-            const dragSource = event.dataTransfer.getData('application/drag-source');
-            if (dragSource === 'palette') {
-                event.dataTransfer.dropEffect = 'copy';
-            } else if (dragSource === 'board') {
-                event.dataTransfer.dropEffect = 'move';
-            }
-        }
-
-        function handleDropOnSquare(event) {
-            event.preventDefault();
-            const pieceKey = event.dataTransfer.getData('text/plain');
-            const dragSource = event.dataTransfer.getData('application/drag-source');
-            const targetSquareElement = event.currentTarget;
-
-            if (PIECES[pieceKey]) {
-                if (dragSource === 'board') {
-                    const sourceCoords = event.dataTransfer.getData('application/source-square-coords');
-                    if (sourceCoords) {
-                        const [row, col] = sourceCoords.split(',');
-                        const sourceSquareElement = document.querySelector(`.square[data-row='${row}'][data-col='${col}']`);
-                        if (sourceSquareElement && sourceSquareElement !== targetSquareElement) {
-                            clearPieceFromSquare(sourceSquareElement);
-                        }
-                    }
-                }
-                addPieceToSquare(PIECES[pieceKey].unicode, pieceKey, targetSquareElement);
-            }
-        }
-
-        // --- Context Menu Handlers ---
-        function handleRightClick(event) {
-            event.preventDefault();
-            targetSquareElement = event.currentTarget;
-            const { clientX: mouseX, clientY: mouseY } = event;
-            contextMenuElement.style.top = `${mouseY}px`;
-            contextMenuElement.style.left = `${mouseX}px`;
-            contextMenuElement.style.display = 'block';
-            populateContextMenu();
-        }
-
-        function populateContextMenu() {
-            contextMenuList.innerHTML = '';
-            for (const keyInPieces in PIECES) {
-                const pieceData = PIECES[keyInPieces];
-                const listItem = document.createElement('li');
-                const pieceCharSpan = document.createElement('span');
-                pieceCharSpan.classList.add('piece-char');
-                pieceCharSpan.textContent = pieceData.unicode || ' ';
-                listItem.appendChild(pieceCharSpan);
-                listItem.appendChild(document.createTextNode(pieceData.name));
-                listItem.addEventListener('click', () => {
-                    addPieceToSquare(pieceData.unicode, keyInPieces, targetSquareElement);
-                    hideContextMenu();
+    // ---------- Palette ----------
+    function buildPalette() {
+        ['white', 'black'].forEach(color => {
+            const wrap = $(color + '-palette');
+            wrap.innerHTML = '';
+            ORDER.forEach(t => {
+                const key = (color === 'white' ? 'w' : 'b') + t;
+                const el = document.createElement('div');
+                el.className = 'palette-piece ' + color;
+                el.appendChild(makePieceSVG(key));
+                el.dataset.key = key;
+                el.draggable = true;
+                el.title = (color === 'white' ? 'White ' : 'Black ') + NAMES[t];
+                el.addEventListener('click', () => setTool(tool === key ? null : key));
+                el.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('src', 'palette');
+                    e.dataTransfer.setData('key', key);
+                    e.dataTransfer.effectAllowed = 'copy';
                 });
-                contextMenuList.appendChild(listItem);
-            }
-        }
-
-        function hideContextMenu() {
-            contextMenuElement.style.display = 'none';
-            targetSquareElement = null;
-        }
-
-        // Function to add/update piece on a square
-        function addPieceToSquare(pieceUnicode, pieceKey, squareElement) {
-            if (!squareElement) return;
-
-            if (pieceKey === 'empty') {
-                clearPieceFromSquare(squareElement);
-                return;
-            }
-
-            let pieceSpan = squareElement.querySelector('.piece');
-            if (!pieceSpan) {
-                pieceSpan = document.createElement('span');
-                pieceSpan.classList.add('piece');
-                const coordinates = squareElement.querySelectorAll('.coordinate');
-                if (coordinates.length > 0) {
-                    squareElement.insertBefore(pieceSpan, coordinates[coordinates.length - 1].nextSibling);
-                } else {
-                    squareElement.prepend(pieceSpan);
-                }
-            }
-            pieceSpan.textContent = pieceUnicode;
-            pieceSpan.draggable = true;
-            pieceSpan.dataset.pieceKey = pieceKey;
-
-            pieceSpan.removeEventListener('dragstart', handleDragStartBoardPiece);
-            pieceSpan.addEventListener('dragstart', handleDragStartBoardPiece);
-        }
-
-        // Function to clear a piece from a square
-        function clearPieceFromSquare(squareElement) {
-            if (!squareElement) return;
-            const pieceSpan = squareElement.querySelector('.piece');
-            if (pieceSpan) {
-                pieceSpan.remove();
-            }
-        }
-
-        // Function to clear all pieces from the board
-        function clearEntireBoard() {
-            const allSquares = boardElement.querySelectorAll('.square');
-            allSquares.forEach(square => {
-                clearPieceFromSquare(square);
+                wrap.appendChild(el);
             });
+        });
+    }
+    function setTool(t) { tool = t; selected = null; updateToolUI(); renderBoard(); }
+    $('tool-move').addEventListener('click', () => setTool(null));
+    $('tool-erase').addEventListener('click', () => setTool(tool === 'erase' ? null : 'erase'));
+
+    // ---------- Board interaction (click) ----------
+    boardEl.addEventListener('click', (e) => {
+        const sq = e.target.closest('.square'); if (!sq) return;
+        const r = +sq.dataset.r, c = +sq.dataset.c;
+
+        if (tool === 'erase') {
+            if (board[r][c]) { record(); board[r][c] = null; afterChange(); }
+            return;
         }
-        clearBoardButton.addEventListener('click', clearEntireBoard);
-
-        // Function to restart the board to its initial setup
-        function restartGame() {
-            createBoard();
+        if (tool) { // placing a piece
+            if (board[r][c] !== tool) { record(); board[r][c] = tool; afterChange(); }
+            return;
         }
-        restartBoardButton.addEventListener('click', restartGame);
+        // Select / move mode
+        if (selected) {
+            if (selected.r === r && selected.c === c) { selected = null; renderBoard(); return; }
+            record();
+            board[r][c] = board[selected.r][selected.c];
+            board[selected.r][selected.c] = null;
+            selected = null; afterChange();
+        } else if (board[r][c]) {
+            selected = { r, c }; renderBoard();
+        }
+    });
 
+    // ---------- Drag & drop ----------
+    boardEl.addEventListener('dragstart', (e) => {
+        const p = e.target.closest('.piece'); if (!p) return;
+        const sq = p.closest('.square');
+        e.dataTransfer.setData('src', 'board');
+        e.dataTransfer.setData('coords', sq.dataset.r + ',' + sq.dataset.c);
+        e.dataTransfer.effectAllowed = 'move';
+    });
+    boardEl.addEventListener('dragover', (e) => { if (e.target.closest('.square')) e.preventDefault(); });
+    boardEl.addEventListener('drop', (e) => {
+        const sq = e.target.closest('.square'); if (!sq) return;
+        e.preventDefault();
+        const r = +sq.dataset.r, c = +sq.dataset.c;
+        const src = e.dataTransfer.getData('src');
+        if (src === 'palette') {
+            const key = e.dataTransfer.getData('key');
+            if (board[r][c] !== key) { record(); board[r][c] = key; afterChange(); }
+        } else if (src === 'board') {
+            const [sr, sc] = e.dataTransfer.getData('coords').split(',').map(Number);
+            if (sr === r && sc === c) return;
+            record();
+            board[r][c] = board[sr][sc]; board[sr][sc] = null; afterChange();
+        }
+    });
 
-        // Global click listener to hide context menu
-        document.addEventListener('click', (event) => {
-            if (!contextMenuElement.contains(event.target) && event.button !== 2) {
-                let clickedSquare = event.target.classList.contains('square') ? event.target : event.target.closest('.square');
-                if (!clickedSquare) {
-                    hideContextMenu();
+    // Palette acts as a trash can for board pieces
+    const palettePanel = $('palette-panel');
+    palettePanel.addEventListener('dragover', (e) => { e.preventDefault(); palettePanel.classList.add('trash-armed'); });
+    palettePanel.addEventListener('dragleave', (e) => { if (!palettePanel.contains(e.relatedTarget)) palettePanel.classList.remove('trash-armed'); });
+    palettePanel.addEventListener('drop', (e) => {
+        palettePanel.classList.remove('trash-armed');
+        if (e.dataTransfer.getData('src') === 'board') {
+            const [sr, sc] = e.dataTransfer.getData('coords').split(',').map(Number);
+            if (board[sr][sc]) { record(); board[sr][sc] = null; afterChange(); toast('Piece removed'); }
+        }
+    });
+
+    // ---------- Context menu ----------
+    const menu = $('context-menu');
+    let ctxTarget = null;
+    boardEl.addEventListener('contextmenu', (e) => {
+        const sq = e.target.closest('.square'); if (!sq) return;
+        e.preventDefault();
+        ctxTarget = { r: +sq.dataset.r, c: +sq.dataset.c };
+        buildContextMenu(board[ctxTarget.r][ctxTarget.c]);
+        menu.style.display = 'block';
+        const mw = menu.offsetWidth, mh = menu.offsetHeight;
+        menu.style.left = Math.min(e.clientX, window.innerWidth - mw - 8) + 'px';
+        menu.style.top = Math.min(e.clientY, window.innerHeight - mh - 8) + 'px';
+    });
+    function buildContextMenu(currentKey) {
+        menu.innerHTML = '';
+        if (currentKey) {
+            const rm = document.createElement('div');
+            rm.className = 'ctx-item danger';
+            rm.innerHTML = '<span class="g">✕</span> Remove piece';
+            rm.onclick = () => { record(); board[ctxTarget.r][ctxTarget.c] = null; afterChange(); hideMenu(); };
+            menu.appendChild(rm);
+            menu.appendChild(Object.assign(document.createElement('div'), { className: 'ctx-sep' }));
+        }
+        ['white', 'black'].forEach(color => {
+            const head = document.createElement('div');
+            head.className = 'ctx-head'; head.textContent = color === 'white' ? 'White' : 'Black';
+            menu.appendChild(head);
+            const grid = document.createElement('div');
+            grid.className = 'ctx-pieces';
+            ORDER.forEach(t => {
+                const key = (color === 'white' ? 'w' : 'b') + t;
+                const cell = document.createElement('div');
+                cell.title = NAMES[t];
+                cell.appendChild(makePieceSVG(key));
+                cell.onclick = () => { record(); board[ctxTarget.r][ctxTarget.c] = key; afterChange(); hideMenu(); };
+                grid.appendChild(cell);
+            });
+            menu.appendChild(grid);
+        });
+    }
+    function hideMenu() { menu.style.display = 'none'; ctxTarget = null; }
+    document.addEventListener('click', (e) => { if (!menu.contains(e.target)) hideMenu(); });
+    document.addEventListener('scroll', hideMenu, true);
+
+    // ---------- FEN ----------
+    const fenChar = (k) => colorOf(k) === 'white' ? typeOf(k) : typeOf(k).toLowerCase();
+    function toFEN() {
+        const rows = board.map(row => {
+            let s = '', empty = 0;
+            row.forEach(k => {
+                if (!k) empty++;
+                else { if (empty) { s += empty; empty = 0; } s += fenChar(k); }
+            });
+            if (empty) s += empty;
+            return s || '8';
+        });
+        return rows.join('/') + ' w - - 0 1';
+    }
+    function parseFEN(str) {
+        const placement = str.trim().split(/\s+/)[0];
+        const rows = placement.split('/');
+        if (rows.length !== 8) throw new Error('need 8 ranks');
+        const nb = Array.from({ length: 8 }, () => Array(8).fill(null));
+        for (let r = 0; r < 8; r++) {
+            let c = 0;
+            for (const ch of rows[r]) {
+                if (/[1-8]/.test(ch)) c += +ch;
+                else {
+                    const up = ch.toUpperCase();
+                    if (!GLYPH[up] || c > 7) throw new Error('bad char');
+                    nb[r][c] = (ch === up ? 'w' : 'b') + up;
+                    c++;
                 }
             }
-        });
+            if (c !== 8) throw new Error('bad rank length');
+        }
+        return nb;
+    }
+    function updateFEN() { $('fen-input').value = toFEN(); $('fen-input').classList.remove('invalid'); }
+    $('copy-fen').addEventListener('click', () => {
+        const v = $('fen-input').value;
+        (navigator.clipboard ? navigator.clipboard.writeText(v) : Promise.reject())
+            .then(() => toast('FEN copied'))
+            .catch(() => { $('fen-input').select(); document.execCommand('copy'); toast('FEN copied'); });
+    });
+    function loadFENFromInput() {
+        try {
+            const nb = parseFEN($('fen-input').value);
+            record(); board = nb; selected = null; afterChange(); toast('Position loaded');
+        } catch (err) {
+            $('fen-input').classList.add('invalid'); toast('Invalid FEN — check the placement field.', true);
+        }
+    }
+    $('load-fen').addEventListener('click', loadFENFromInput);
+    $('fen-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') loadFENFromInput(); });
 
-        contextMenuElement.addEventListener('contextmenu', (event) => {
-            event.preventDefault();
-        });
+    // ---------- Confirm modal ----------
+    let confirmCb = null;
+    function askConfirm(title, msg, confirmLabel, onOk) {
+        $('modal-title').textContent = title;
+        $('modal-msg').textContent = msg;
+        $('modal-confirm').textContent = confirmLabel;
+        confirmCb = onOk;
+        $('modal-back').classList.add('show');
+    }
+    $('modal-cancel').addEventListener('click', () => $('modal-back').classList.remove('show'));
+    $('modal-back').addEventListener('click', (e) => { if (e.target === $('modal-back')) $('modal-back').classList.remove('show'); });
+    $('modal-confirm').addEventListener('click', () => { $('modal-back').classList.remove('show'); if (confirmCb) confirmCb(); });
 
-        // Initialize
-        window.onload = () => {
-            createBoard();
-            populatePiecePalette();
-        };
+    // ---------- Controls ----------
+    $('undo-btn').addEventListener('click', undo);
+    $('redo-btn').addEventListener('click', redo);
+    $('flip-btn').addEventListener('click', () => { orientation = orientation === 'white' ? 'black' : 'white'; renderBoard(); });
+    $('coord-toggle').addEventListener('change', (e) => { showCoords = e.target.checked; renderBoard(); });
+    $('reset-btn').addEventListener('click', () => {
+        askConfirm('Reset to starting position?', 'This replaces the current position with the standard chess setup.', 'Reset', () => {
+            record(); board = clone(START); selected = null; afterChange(); toast('Reset to start position');
+        });
+    });
+    $('clear-btn').addEventListener('click', () => {
+        if (board.flat().every(x => !x)) { toast('Board is already empty'); return; }
+        askConfirm('Clear the board?', 'This removes every piece so you can build a position from scratch.', 'Clear board', () => {
+            record(); board = Array.from({ length: 8 }, () => Array(8).fill(null)); selected = null; afterChange(); toast('Board cleared');
+        });
+    });
+
+    // ---------- Keyboard ----------
+    document.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT') return;
+        const mod = e.metaKey || e.ctrlKey;
+        if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
+        else if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
+        else if ((e.key === 'Delete' || e.key === 'Backspace') && selected) { e.preventDefault(); record(); board[selected.r][selected.c] = null; selected = null; afterChange(); }
+        else if (e.key === 'Escape') { setTool(null); hideMenu(); $('modal-back').classList.remove('show'); }
+        else if (e.key.toLowerCase() === 'f') { orientation = orientation === 'white' ? 'black' : 'white'; renderBoard(); }
+    });
+
+    // ---------- Init ----------
+    buildPalette();
+    renderBoard();
+    updateFEN();
+    updateToolUI();
+    updateHistoryButtons();
     </script>
 </body>
-
 </html>
