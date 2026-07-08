@@ -3,581 +3,1002 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF Editor</title>
+    <title>PDF Studio — Edit, Merge & Organize PDFs</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js"></script>
     <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* Custom styles for the app */
+        :root {
+            --accent: #4f46e5;
+            --accent-hover: #4338ca;
+            --ink: #1e293b;
+            --muted: #64748b;
+            --line: #e2e8f0;
+            --surface: #ffffff;
+            --bg: #f1f5f9;
+        }
+        * { -webkit-tap-highlight-color: transparent; }
+        html, body { height: 100%; }
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--ink);
             overscroll-behavior: contain;
+            margin: 0;
         }
-        #pdf-viewer {
-            position: relative;
+        /* Scrollbars */
+        .thin-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+        .thin-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
+        .thin-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; background-clip: content-box; }
+
+        /* Buttons */
+        .btn { display:inline-flex; align-items:center; gap:.45rem; font-weight:500; font-size:.875rem; padding:.5rem .85rem; border-radius:.6rem; transition:all .15s ease; cursor:pointer; white-space:nowrap; border:1px solid transparent; }
+        .btn:disabled { opacity:.45; cursor:not-allowed; }
+        .btn-primary { background:var(--accent); color:#fff; }
+        .btn-primary:not(:disabled):hover { background:var(--accent-hover); }
+        .btn-ghost { background:transparent; color:var(--ink); border-color:var(--line); }
+        .btn-ghost:not(:disabled):hover { background:#f8fafc; border-color:#cbd5e1; }
+        .btn-icon { padding:.4rem; border-radius:.5rem; }
+        .btn svg { width:1.05rem; height:1.05rem; }
+
+        /* Thumbnail cards */
+        .thumb {
+            position: relative; border-radius:.6rem; overflow:hidden; cursor:pointer;
+            background:#fff; border:1px solid var(--line); transition:box-shadow .15s, border-color .15s, transform .1s;
         }
-        .pdf-page-container {
-            position: relative;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        .thumb:hover { border-color:#c7cbff; box-shadow:0 4px 14px rgba(79,70,229,.12); }
+        .thumb.active { border-color:var(--accent); box-shadow:0 0 0 2px rgba(79,70,229,.35); }
+        .thumb.dragging { opacity:.4; }
+        .thumb.drop-before::before, .thumb.drop-after::after {
+            content:''; position:absolute; top:0; bottom:0; width:3px; background:var(--accent); border-radius:2px; z-index:5;
         }
-        .pdf-page-canvas {
-            display: block;
-            border: 1px solid #e2e8f0;
-        }
-        .interactive-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            cursor: default;
-        }
-        .draggable-object {
-            position: absolute;
-            cursor: move;
-            border: 1px dashed transparent;
-            user-select: none;
-        }
-        .draggable-object.selected,
-        .draggable-object:hover {
-             border-color: #3b82f6;
-        }
-        .draggable-object.is-dragging, 
-        .draggable-object.is-resizing {
-             border-style: solid;
-             border-color: #3b82f6;
-        }
-        .draggable-object.selected .resize-handle,
-        .draggable-object.selected .delete-handle,
-        .draggable-object:hover .resize-handle,
-        .draggable-object:hover .delete-handle {
-            display: flex;
-        }
-        /* Style for when text is being edited */
-        .draggable-text[contenteditable=true] {
-            cursor: text;
-            background-color: rgba(255, 255, 150, 0.5);
-            outline: none;
-            border-color: #3b82f6;
-            border-style: solid;
-        }
-        .resize-handle {
-            position: absolute;
-            width: 15px;
-            height: 15px;
-            background-color: #3b82f6;
-            border: 2px solid white;
-            border-radius: 50%;
-            bottom: -8px;
-            right: -8px;
-            cursor: se-resize;
-            display: none;
-        }
-        .delete-handle {
-            position: absolute;
-            width: 18px;
-            height: 18px;
-            background-color: #ef4444;
-            color: white;
-            border: 2px solid white;
-            border-radius: 50%;
-            top: -9px;
-            right: -9px;
-            cursor: pointer;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            font-weight: bold;
-            line-height: 1;
-        }
-        .draggable-text {
-            padding: 4px;
-            word-break: break-word; /* Allow text wrapping */
-            background-color: rgba(255, 255, 255, 0.7);
-        }
-        .draggable-image img {
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-        }
-        .loader {
-            border: 5px solid #f3f3f3;
-            border-top: 5px solid #3498db;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        #signature-canvas {
-            border: 1px solid #ccc;
-            border-radius: 0.5rem;
-            cursor: crosshair;
-            touch-action: none;
-        }
+        .thumb.drop-before::before { left:-6px; }
+        .thumb.drop-after::after { right:-6px; }
+        .thumb-canvas-wrap { display:flex; align-items:center; justify-content:center; background:#fff; padding:6px; min-height:120px; }
+        .thumb canvas { max-width:100%; height:auto; box-shadow:0 1px 3px rgba(0,0,0,.12); }
+        .thumb-bar { display:flex; align-items:center; justify-content:space-between; padding:.3rem .45rem; border-top:1px solid var(--line); background:#fafbff; }
+        .page-check { width:1.05rem; height:1.05rem; accent-color:var(--accent); cursor:pointer; }
+        .thumb-tools { display:flex; gap:.15rem; opacity:0; transition:opacity .15s; }
+        .thumb:hover .thumb-tools, .thumb.active .thumb-tools { opacity:1; }
+        /* Touch devices have no hover — keep controls visible so they're reachable */
+        @media (hover: none) { .thumb-tools { opacity:1; } }
+        .thumb-tool { padding:3px; border-radius:.35rem; color:var(--muted); cursor:pointer; touch-action:manipulation; }
+        .thumb-tool:hover { background:#eef2ff; color:var(--accent); }
+        .thumb-tool.danger:hover { background:#fee2e2; color:#dc2626; }
+        .thumb-tool svg { width:15px; height:15px; }
+        .drag-grip { cursor:grab; color:#cbd5e1; touch-action:none; opacity:1 !important; }
+        .drag-grip:hover { color:var(--accent); background:transparent; }
+        .drag-grip:active { cursor:grabbing; }
+
+        /* Editor overlay objects */
+        .interactive-overlay { position:absolute; inset:0; }
+        .obj { position:absolute; cursor:move; border:1px solid transparent; user-select:none; box-sizing:border-box; }
+        .obj:hover, .obj.selected { border-color:var(--accent); }
+        .obj.selected { box-shadow:0 0 0 1px rgba(79,70,229,.3); }
+        .obj-text { padding:2px 3px; word-break:break-word; line-height:1.2; overflow:hidden; }
+        .obj-text[contenteditable=true] { cursor:text; outline:none; background:rgba(199,210,254,.35); border-color:var(--accent); }
+        .obj-image img { width:100%; height:100%; pointer-events:none; display:block; }
+        .handle { position:absolute; display:none; }
+        .obj.selected .handle { display:flex; }
+        .resize-handle { width:13px; height:13px; background:var(--accent); border:2px solid #fff; border-radius:50%; bottom:-7px; right:-7px; cursor:se-resize; box-shadow:0 1px 3px rgba(0,0,0,.3); }
+        .delete-handle { width:20px; height:20px; background:#dc2626; color:#fff; border:2px solid #fff; border-radius:50%; top:-10px; right:-10px; cursor:pointer; align-items:center; justify-content:center; font-size:12px; font-weight:700; line-height:1; box-shadow:0 1px 3px rgba(0,0,0,.3); }
+
+        .loader { width:38px; height:38px; border:4px solid #e2e8f0; border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+
+        #signature-canvas { border:1px solid var(--line); border-radius:.6rem; cursor:crosshair; touch-action:none; background:#fff; }
+        .seg { display:inline-flex; background:#eef2ff; border-radius:.55rem; padding:2px; }
+        .seg button { padding:.3rem .7rem; border-radius:.4rem; font-size:.8rem; font-weight:500; color:var(--muted); cursor:pointer; }
+        .seg button.on { background:#fff; color:var(--accent); box-shadow:0 1px 2px rgba(0,0,0,.08); }
+        .dropzone-active { outline:3px dashed var(--accent); outline-offset:-14px; background:#eef2ff; }
+        .toast { position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(20px); opacity:0; background:#0f172a; color:#fff; padding:.7rem 1.1rem; border-radius:.6rem; font-size:.85rem; box-shadow:0 8px 24px rgba(0,0,0,.25); transition:all .25s; pointer-events:none; z-index:100; }
+        .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-800">
-
+<body>
     <div id="app" class="flex flex-col h-screen">
-        <!-- Header / Toolbar -->
-        <header class="bg-white shadow-md p-2 sm:p-4 flex flex-col sm:flex-row items-center justify-between z-10">
-            <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mb-2 sm:mb-0">PDF Editor</h1>
-            <div class="flex items-center space-x-2 sm:space-x-3 flex-wrap justify-center">
-                 <!-- Editing tools -->
-                <div id="text-tools" class="flex items-center space-x-2 border-r pr-2 mr-2">
-                    <label for="font-size-control" class="text-sm">Size:</label>
-                    <input type="number" id="font-size-control" value="16" min="1" class="w-16 p-1 border border-gray-300 rounded-md disabled:bg-gray-200" disabled>
-                    <label for="color-control" class="text-sm">Color:</label>
-                    <input type="color" id="color-control" value="#000000" class="w-8 h-8 p-0 border-none rounded-md disabled:bg-gray-200" disabled>
+        <!-- Top bar -->
+        <header class="bg-white border-b border-slate-200 px-2 sm:px-5 h-14 flex items-center justify-between shrink-0 z-20 gap-1">
+            <div class="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
+                <button id="sidebar-toggle" class="btn btn-ghost btn-icon md:hidden" title="Toggle pages" disabled>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+                </button>
+                <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
                 </div>
-                <!-- Action buttons -->
-                <input type="file" id="pdf-upload" class="hidden" accept="application/pdf">
-                <button id="upload-btn" class="px-3 py-1 text-sm sm:px-4 sm:py-2 sm:text-base bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300">
-                    Upload PDF
+                <div class="leading-tight hidden sm:block">
+                    <h1 class="text-[15px] font-semibold">PDF Studio</h1>
+                    <p class="text-[11px] text-slate-400 hidden md:block">Edit · Merge · Organize — all in your browser</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-1 sm:gap-2">
+                <input type="file" id="pdf-upload" class="hidden" accept="application/pdf" multiple>
+                <input type="file" id="image-upload" class="hidden" accept="image/png,image/jpeg">
+                <div class="flex items-center gap-0.5 mr-1">
+                    <button id="undo-btn" class="btn btn-ghost btn-icon" title="Undo (Ctrl/⌘+Z)" disabled>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-1"/></svg>
+                    </button>
+                    <button id="redo-btn" class="btn btn-ghost btn-icon" title="Redo (Ctrl/⌘+Shift+Z)" disabled>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 14l5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h1"/></svg>
+                    </button>
+                </div>
+                <button id="add-files-btn" class="btn btn-ghost">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                    <span class="hidden sm:inline">Add PDFs</span>
                 </button>
-                <button id="add-text-btn" class="px-3 py-1 text-sm sm:px-4 sm:py-2 sm:text-base bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
-                    Add Text
+                <button id="split-btn" class="btn btn-ghost" disabled>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3v6a3 3 0 0 0 3 3h6a3 3 0 0 1 3 3v6"/><path d="M18 3v6a3 3 0 0 1-3 3H9a3 3 0 0 0-3 3v6"/></svg>
+                    <span class="hidden sm:inline">Split</span>
                 </button>
-                <button id="add-signature-btn" class="px-3 py-1 text-sm sm:px-4 sm:py-2 sm:text-base bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
-                    Add Signature
-                </button>
-                <button id="save-pdf-btn" class="px-3 py-1 text-sm sm:px-4 sm:py-2 sm:text-base bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
-                    Save & Download
+                <button id="export-btn" class="btn btn-primary" disabled>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>
+                    <span id="export-label">Export</span>
                 </button>
             </div>
         </header>
 
-        <!-- Main Content Area -->
-        <main class="flex-grow p-2 sm:p-6 overflow-auto flex flex-col items-center">
-            <div id="viewer-container" class="w-full max-w-4xl">
-                <div id="pdf-viewer"></div>
-                <div id="initial-message" class="text-center py-20">
-                    <p class="text-xl text-gray-500">Upload a PDF to start</p>
+        <div class="flex flex-1 min-h-0 relative">
+            <!-- Backdrop for mobile drawer -->
+            <div id="sidebar-backdrop" class="hidden md:hidden fixed inset-0 top-14 bg-slate-900/40 z-30"></div>
+            <!-- Pages sidebar (static column on desktop, slide-over drawer on mobile) -->
+            <aside id="sidebar" class="fixed md:static top-14 md:top-0 bottom-0 left-0 z-40 w-[80%] max-w-[300px] md:w-[280px] shrink-0 bg-white border-r border-slate-200 flex flex-col transition-transform duration-200 -translate-x-full md:translate-x-0 shadow-xl md:shadow-none">
+                <div class="px-3 py-2.5 border-b border-slate-200 flex items-center justify-between">
+                    <span class="text-[13px] font-semibold text-slate-700">Pages</span>
+                    <span id="page-count" class="text-[11px] text-slate-400">0 pages</span>
                 </div>
-                <div id="loading-indicator" class="hidden flex-col items-center justify-center py-20">
+                <div id="selection-bar" class="px-3 py-2 border-b border-slate-200 hidden items-center justify-between gap-2 text-[12px]">
+                    <label class="flex items-center gap-1.5 cursor-pointer text-slate-600">
+                        <input type="checkbox" id="select-all" class="page-check"> Select all
+                    </label>
+                    <span id="selected-count" class="text-indigo-600 font-medium"></span>
+                </div>
+                <div id="thumbs" class="flex-1 overflow-y-auto thin-scroll p-3 grid grid-cols-2 gap-3 content-start"></div>
+                <div id="sidebar-empty" class="flex-1 flex items-center justify-center p-6 text-center">
+                    <p class="text-[13px] text-slate-400 leading-relaxed">Your pages will appear here.<br>Add a PDF to begin.</p>
+                </div>
+            </aside>
+
+            <!-- Editor canvas -->
+            <main id="stage" class="flex-1 min-w-0 overflow-auto thin-scroll relative flex flex-col items-center justify-start p-6 bg-slate-100">
+                <!-- Empty state -->
+                <div id="empty-state" class="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
+                    <div class="w-16 h-16 rounded-2xl bg-white shadow-sm border border-slate-200 flex items-center justify-center mb-4">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.6" class="w-8 h-8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6"/></svg>
+                    </div>
+                    <h2 class="text-lg font-semibold text-slate-700">Drop a PDF to start</h2>
+                    <p class="text-sm text-slate-400 mt-1 mb-5 max-w-xs">Add text and signatures, reorder or delete pages, merge files, and export exactly the pages you need.</p>
+                    <button id="empty-upload-btn" class="btn btn-primary">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>
+                        Choose PDF files
+                    </button>
+                </div>
+
+                <!-- Editor toolbar (floats above page) -->
+                <div id="editor-toolbar" class="hidden sticky top-0 z-10 mb-4 bg-white border border-slate-200 rounded-xl shadow-sm px-2 py-1.5 flex items-center gap-1 flex-wrap justify-center">
+                    <button id="add-text-btn" class="btn btn-ghost btn-icon" title="Add text">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V5h16v2M9 5v14M15 5v14M7 19h4M13 19h4"/></svg>
+                        <span class="hidden md:inline text-sm">Text</span>
+                    </button>
+                    <button id="add-signature-btn" class="btn btn-ghost btn-icon" title="Add signature">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17s3-6 6-6 3 4 6 4 6-9 6-9"/><path d="M3 21h18"/></svg>
+                        <span class="hidden md:inline text-sm">Sign</span>
+                    </button>
+                    <button id="add-image-btn" class="btn btn-ghost btn-icon" title="Insert image">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                        <span class="hidden md:inline text-sm">Image</span>
+                    </button>
+
+                    <div id="text-props" class="hidden items-center gap-2 pl-2 ml-1 border-l border-slate-200">
+                        <div class="flex items-center gap-1">
+                            <button id="font-dec" class="btn-icon text-slate-500 hover:bg-slate-100 rounded">−</button>
+                            <input type="number" id="font-size" value="16" min="4" max="200" class="w-12 text-center text-sm border border-slate-200 rounded-md py-1">
+                            <button id="font-inc" class="btn-icon text-slate-500 hover:bg-slate-100 rounded">+</button>
+                        </div>
+                        <input type="color" id="text-color" value="#111827" class="w-8 h-8 p-0.5 border border-slate-200 rounded-md cursor-pointer bg-white">
+                    </div>
+
+                    <div class="flex items-center gap-1 pl-2 ml-1 border-l border-slate-200">
+                        <button id="rotate-page-btn" class="btn btn-ghost btn-icon" title="Rotate page">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/></svg>
+                        </button>
+                        <button id="delete-page-btn" class="btn btn-ghost btn-icon" title="Delete page">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="page-stage" class="hidden flex-col items-center">
+                    <div id="page-container" class="pdf-page-container relative bg-white shadow-lg" style="box-shadow:0 10px 30px rgba(15,23,42,.15)">
+                        <canvas id="page-canvas" class="block"></canvas>
+                        <div id="overlay" class="interactive-overlay"></div>
+                    </div>
+                    <p id="page-indicator" class="mt-3 text-[12px] text-slate-400"></p>
+                </div>
+
+                <div id="loading" class="hidden absolute inset-0 flex flex-col items-center justify-center bg-slate-100/70 backdrop-blur-sm z-30">
                     <div class="loader"></div>
-                    <p class="mt-4 text-lg text-gray-600">Loading PDF...</p>
+                    <p class="mt-3 text-sm text-slate-500" id="loading-text">Loading…</p>
                 </div>
-            </div>
-        </main>
+            </main>
+        </div>
     </div>
 
     <!-- Signature Modal -->
-    <div id="signature-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-lg">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl font-semibold">Draw Your Signature</h3>
-                 <div class="flex items-center">
-                     <label for="signature-color-input" class="mr-2">Color:</label>
-                    <input type="color" id="signature-color-input" value="#000000" class="w-10 h-10 p-1 border border-gray-300 rounded-md">
+    <div id="signature-modal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="bg-white p-5 rounded-2xl shadow-2xl w-full max-w-lg">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-base font-semibold">Draw your signature</h3>
+                <div class="flex items-center gap-2 text-sm text-slate-500">
+                    <span>Color</span>
+                    <input type="color" id="signature-color" value="#0f172a" class="w-8 h-8 p-0.5 border border-slate-200 rounded-md cursor-pointer bg-white">
                 </div>
             </div>
             <canvas id="signature-canvas" class="w-full"></canvas>
-            <div class="mt-6 flex justify-end space-x-3">
-                <button id="clear-signature-btn" class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">Clear</button>
-                <button id="cancel-signature-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">Cancel</button>
-                <button id="save-signature-btn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Save Signature</button>
+            <div class="mt-4 flex justify-end gap-2">
+                <button id="clear-signature-btn" class="btn btn-ghost">Clear</button>
+                <button id="cancel-signature-btn" class="btn btn-ghost">Cancel</button>
+                <button id="save-signature-btn" class="btn btn-primary">Place signature</button>
             </div>
         </div>
     </div>
 
+    <!-- Export Modal -->
+    <div id="export-modal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="bg-white p-5 rounded-2xl shadow-2xl w-full max-w-md">
+            <h3 class="text-base font-semibold mb-1">Export PDF</h3>
+            <p class="text-sm text-slate-500 mb-4">Choose which pages to include in the exported file.</p>
+            <div class="seg mb-4" id="export-scope">
+                <button data-scope="all" class="on">All pages</button>
+                <button data-scope="selected">Selected only</button>
+            </div>
+            <label class="block text-sm text-slate-600 mb-1.5">File name</label>
+            <div class="flex items-center gap-2 mb-5">
+                <input type="text" id="export-name" value="edited-document" class="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                <span class="text-sm text-slate-400">.pdf</span>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button id="export-cancel-btn" class="btn btn-ghost">Cancel</button>
+                <button id="export-confirm-btn" class="btn btn-primary">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>
+                    <span id="export-confirm-label">Download</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Split Modal -->
+    <div id="split-modal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="bg-white p-5 rounded-2xl shadow-2xl w-full max-w-md">
+            <h3 class="text-base font-semibold mb-1">Split into separate files</h3>
+            <p class="text-sm text-slate-500 mb-4">Each page becomes its own PDF, delivered together in a ZIP archive.</p>
+            <div class="seg mb-4" id="split-scope">
+                <button data-scope="all" class="on">All pages</button>
+                <button data-scope="selected">Selected only</button>
+            </div>
+            <label class="block text-sm text-slate-600 mb-1.5">ZIP file name</label>
+            <div class="flex items-center gap-2 mb-5">
+                <input type="text" id="split-name" value="split-pages" class="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                <span class="text-sm text-slate-400">.zip</span>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button id="split-cancel-btn" class="btn btn-ghost">Cancel</button>
+                <button id="split-confirm-btn" class="btn btn-primary">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>
+                    Download ZIP
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
     <script>
-        // --- Initialization ---
-        const { PDFDocument, rgb, StandardFonts } = PDFLib;
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+    const { PDFDocument, rgb, StandardFonts, degrees } = PDFLib;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
-        // --- DOM Elements ---
-        const uploadBtn = document.getElementById('upload-btn');
-        const pdfUpload = document.getElementById('pdf-upload');
-        const addTextBtn = document.getElementById('add-text-btn');
-        const addSignatureBtn = document.getElementById('add-signature-btn');
-        const savePdfBtn = document.getElementById('save-pdf-btn');
-        const pdfViewer = document.getElementById('pdf-viewer');
-        const initialMessage = document.getElementById('initial-message');
-        const loadingIndicator = document.getElementById('loading-indicator');
-        const fontSizeControl = document.getElementById('font-size-control');
-        const colorControl = document.getElementById('color-control');
-        
-        // --- Modal Elements ---
-        const signatureModal = document.getElementById('signature-modal');
-        const signatureCanvas = document.getElementById('signature-canvas');
-        const signatureColorInput = document.getElementById('signature-color-input');
-        const signatureCtx = signatureCanvas.getContext('2d');
-        const clearSignatureBtn = document.getElementById('clear-signature-btn');
-        const cancelSignatureBtn = document.getElementById('cancel-signature-btn');
-        const saveSignatureBtn = document.getElementById('save-signature-btn');
+    // ---------- State ----------
+    const sources = {};            // sourceId -> { name, bytes, pdfjsDoc }
+    let pages = [];                // ordered: { id, sourceId, srcIndex, rotation, selected }
+    let annotations = [];          // { id, pageId, type, ...props } normalized to display space (0..1)
+    let activePageId = null;
+    let selectedAnnId = null;
+    let renderScale = 1;           // px per PDF unit for current main render
+    let dispW = 0, dispH = 0;      // current main canvas size in px
+    let uid = 0;
+    const nid = (p) => `${p}-${Date.now()}-${uid++}`;
 
-        // --- App State ---
-        let pdfDoc = null;
-        let originalPdfBytes = null;
-        let addedObjects = [];
-        let selectedObjectInfo = null;
-        let isDrawing = false;
-        let lastX = 0;
-        let lastY = 0;
-        let currentScale = 1.0;
+    // ---------- Undo / redo ----------
+    const HISTORY_LIMIT = 60;
+    let undoStack = [], redoStack = [];
+    const snapshot = () => JSON.parse(JSON.stringify({ pages, annotations, activePageId }));
+    function record() {
+        undoStack.push(snapshot());
+        if (undoStack.length > HISTORY_LIMIT) undoStack.shift();
+        redoStack = [];
+        updateHistoryButtons();
+    }
+    function updateHistoryButtons() {
+        $('undo-btn').disabled = undoStack.length === 0;
+        $('redo-btn').disabled = redoStack.length === 0;
+    }
+    async function applyState(s) {
+        pages = s.pages; annotations = s.annotations;
+        activePageId = pages.some(p => p.id === s.activePageId) ? s.activePageId : (pages[0] && pages[0].id) || null;
+        selectAnn(null);
+        await renderThumbnails();
+        await renderMain();
+        refreshChrome();
+        updateHistoryButtons();
+    }
+    async function undo() {
+        if (!undoStack.length) return;
+        redoStack.push(snapshot());
+        await applyState(undoStack.pop());
+    }
+    async function redo() {
+        if (!redoStack.length) return;
+        undoStack.push(snapshot());
+        await applyState(redoStack.pop());
+    }
 
-        // --- Event Listeners ---
-        uploadBtn.addEventListener('click', () => pdfUpload.click());
-        pdfUpload.addEventListener('change', handleFileUpload);
-        addTextBtn.addEventListener('click', () => addObjectToPage({ type: 'text', text: 'Edit me', fontSize: 16, color: '#000000', width: 80, height: 25 }));
-        addSignatureBtn.addEventListener('click', showSignatureModal);
-        savePdfBtn.addEventListener('click', savePdf);
-        fontSizeControl.addEventListener('input', (e) => updateSelectedObject({ fontSize: parseInt(e.target.value, 10) }));
-        colorControl.addEventListener('input', (e) => updateSelectedObject({ color: e.target.value }));
+    // ---------- DOM ----------
+    const $ = (id) => document.getElementById(id);
+    const pdfUpload = $('pdf-upload'), imageUpload = $('image-upload');
+    const thumbs = $('thumbs'), overlay = $('overlay'), pageCanvas = $('page-canvas');
+    const pageContainer = $('page-container'), pageStage = $('page-stage');
+    $('undo-btn').onclick = undo;
+    $('redo-btn').onclick = redo;
 
+    // ---------- Mobile pages drawer ----------
+    const sidebar = $('sidebar'), sidebarBackdrop = $('sidebar-backdrop');
+    const isMobile = () => window.matchMedia('(max-width: 767px)').matches;
+    function openDrawer() { sidebar.classList.remove('-translate-x-full'); sidebar.classList.add('translate-x-0'); sidebarBackdrop.classList.remove('hidden'); }
+    function closeDrawer() { sidebar.classList.add('-translate-x-full'); sidebar.classList.remove('translate-x-0'); sidebarBackdrop.classList.add('hidden'); }
+    $('sidebar-toggle').onclick = () => { sidebar.classList.contains('-translate-x-full') ? openDrawer() : closeDrawer(); };
+    sidebarBackdrop.onclick = closeDrawer;
 
-        // --- UI Update Functions ---
-        function updateTextToolbar() {
-            if (selectedObjectInfo && selectedObjectInfo.type === 'text') {
-                fontSizeControl.disabled = false;
-                colorControl.disabled = false;
-                fontSizeControl.value = selectedObjectInfo.fontSize;
-                colorControl.value = selectedObjectInfo.color;
-            } else {
-                fontSizeControl.disabled = true;
-                colorControl.disabled = true;
-            }
-        }
+    // ---------- Toast ----------
+    let toastTimer;
+    function toast(msg) {
+        const t = $('toast'); t.textContent = msg; t.classList.add('show');
+        clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+    }
 
-        function updateSelectedObject(props) {
-            if (!selectedObjectInfo || selectedObjectInfo.type !== 'text') return;
-            Object.assign(selectedObjectInfo, props);
-            if (props.fontSize) {
-                selectedObjectInfo.element.style.fontSize = `${props.fontSize}px`;
-            }
-            if (props.color) {
-                selectedObjectInfo.element.style.color = props.color;
-            }
-        }
+    // ---------- Upload / Merge ----------
+    $('add-files-btn').onclick = () => pdfUpload.click();
+    $('empty-upload-btn').onclick = () => pdfUpload.click();
+    pdfUpload.onchange = (e) => { loadFiles(e.target.files); pdfUpload.value = ''; };
 
-        function selectObject(objInfo) {
-            // Deselect previous object
-            if (selectedObjectInfo && selectedObjectInfo.element) {
-                selectedObjectInfo.element.classList.remove('selected');
-                if (selectedObjectInfo.type === 'text') {
-                    selectedObjectInfo.element.contentEditable = false;
+    async function loadFiles(fileList) {
+        const files = [...fileList].filter(f => f.type === 'application/pdf');
+        if (!files.length) return;
+        showLoading(`Loading ${files.length} file${files.length > 1 ? 's' : ''}…`);
+        try {
+            record();
+            let added = 0;
+            for (const file of files) {
+                const bytes = new Uint8Array(await file.arrayBuffer());
+                const sourceId = nid('src');
+                const pdfjsDoc = await pdfjsLib.getDocument({ data: bytes.slice() }).promise;
+                sources[sourceId] = { name: file.name, bytes, pdfjsDoc };
+                for (let i = 0; i < pdfjsDoc.numPages; i++) {
+                    pages.push({ id: nid('pg'), sourceId, srcIndex: i, rotation: 0, selected: false });
+                    added++;
                 }
             }
-            
-            selectedObjectInfo = objInfo;
+            if (!activePageId && pages.length) activePageId = pages[0].id;
+            await renderThumbnails();
+            await renderMain();
+            refreshChrome();
+            toast(`Added ${added} page${added > 1 ? 's' : ''}`);
+        } catch (err) {
+            console.error(err); toast('Could not load one of the files.');
+        } finally { hideLoading(); }
+    }
 
-            // Select new object
-            if (objInfo && objInfo.element) {
-                objInfo.element.classList.add('selected');
-            }
-            
-            updateTextToolbar();
-        }
+    // ---------- Chrome / enabled state ----------
+    function refreshChrome() {
+        const has = pages.length > 0;
+        $('empty-state').classList.toggle('hidden', has);
+        pageStage.classList.toggle('hidden', !has);
+        $('editor-toolbar').classList.toggle('hidden', !has);
+        $('sidebar-empty').classList.toggle('hidden', has);
+        $('selection-bar').style.display = has ? 'flex' : 'none';
+        $('export-btn').disabled = !has;
+        $('split-btn').disabled = pages.length < 1;
+        $('sidebar-toggle').disabled = !has;
+        $('page-count').textContent = `${pages.length} page${pages.length !== 1 ? 's' : ''}`;
+        const sel = pages.filter(p => p.selected).length;
+        $('selected-count').textContent = sel ? `${sel} selected` : '';
+        $('select-all').checked = has && sel === pages.length;
+        $('select-all').indeterminate = sel > 0 && sel < pages.length;
+        $('export-label').textContent = 'Export';
+    }
 
-        // --- Signature Modal Logic ---
-        function showSignatureModal() {
-            signatureModal.classList.remove('hidden');
-            const rect = signatureCanvas.getBoundingClientRect();
-            signatureCanvas.width = rect.width;
-            signatureCanvas.height = 200;
-            clearSignatureCanvas();
-        }
-        function hideSignatureModal() {
-            signatureModal.classList.add('hidden');
-        }
-        cancelSignatureBtn.addEventListener('click', hideSignatureModal);
-        clearSignatureBtn.addEventListener('click', clearSignatureCanvas);
-        saveSignatureBtn.addEventListener('click', () => {
-            if (isCanvasBlank(signatureCanvas)) {
-                alert("Please draw a signature first.");
-                return;
-            }
-            const imageDataUrl = signatureCanvas.toDataURL('image/png');
-            addObjectToPage({ type: 'image', data: imageDataUrl, width: 150, height: 75 });
-            hideSignatureModal();
-        });
+    // ---------- Loading ----------
+    function showLoading(t) { $('loading-text').textContent = t || 'Loading…'; $('loading').classList.remove('hidden'); }
+    function hideLoading() { $('loading').classList.add('hidden'); }
 
-        // --- Signature Canvas Logic ---
-        function clearSignatureCanvas() { signatureCtx.clearRect(0, 0, signatureCanvas.width, signatureCanvas.height); }
-        function getEventPosition(e) { const rect = signatureCanvas.getBoundingClientRect(); const event = e.touches ? e.touches[0] : e; return { x: event.clientX - rect.left, y: event.clientY - rect.top }; }
-        function startDrawing(e) { e.preventDefault(); isDrawing = true; [lastX, lastY] = [getEventPosition(e).x, getEventPosition(e).y]; }
-        function draw(e) { if (!isDrawing) return; e.preventDefault(); const pos = getEventPosition(e); signatureCtx.strokeStyle = signatureColorInput.value; signatureCtx.lineWidth = 2; signatureCtx.lineCap = 'round'; signatureCtx.beginPath(); signatureCtx.moveTo(lastX, lastY); signatureCtx.lineTo(pos.x, pos.y); signatureCtx.stroke(); [lastX, lastY] = [pos.x, pos.y]; }
-        function stopDrawing() { isDrawing = false; }
-        signatureCanvas.addEventListener('mousedown', startDrawing);
-        signatureCanvas.addEventListener('mousemove', draw);
-        signatureCanvas.addEventListener('mouseup', stopDrawing);
-        signatureCanvas.addEventListener('mouseout', stopDrawing);
-        signatureCanvas.addEventListener('touchstart', startDrawing, { passive: false });
-        signatureCanvas.addEventListener('touchmove', draw, { passive: false });
-        signatureCanvas.addEventListener('touchend', stopDrawing);
-        function isCanvasBlank(canvas) { return !canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data.some(channel => channel !== 0); }
+    // ---------- Thumbnails ----------
+    async function renderThumbnails() {
+        thumbs.innerHTML = '';
+        for (let idx = 0; idx < pages.length; idx++) {
+            const page = pages[idx];
+            const card = document.createElement('div');
+            card.className = 'thumb' + (page.id === activePageId ? ' active' : '');
+            card.dataset.pageId = page.id;
 
-        // --- Core PDF Handling ---
-        async function handleFileUpload(e) {
-            const file = e.target.files[0];
-            if (!file || file.type !== 'application/pdf') return;
-            initialMessage.classList.add('hidden');
-            loadingIndicator.classList.remove('hidden');
-            pdfViewer.innerHTML = '';
-            addedObjects = [];
-            selectObject(null);
-            originalPdfBytes = await file.arrayBuffer();
-            try {
-                pdfDoc = await pdfjsLib.getDocument({ data: originalPdfBytes }).promise;
-                await renderAllPages();
-                loadingIndicator.classList.add('hidden');
-                addTextBtn.disabled = false;
-                addSignatureBtn.disabled = false;
-                savePdfBtn.disabled = false;
-            } catch (error) {
-                console.error('Error loading PDF:', error);
-                loadingIndicator.classList.add('hidden');
-                initialMessage.classList.remove('hidden');
-            }
-        }
-
-        async function renderAllPages() {
-            pdfViewer.innerHTML = '';
-            for (let i = 1; i <= pdfDoc.numPages; i++) {
-                await renderPage(i);
-            }
-        }
-
-        async function renderPage(pageNum) {
-            const page = await pdfDoc.getPage(pageNum);
-            const containerWidth = pdfViewer.clientWidth;
-            const viewport = page.getViewport({ scale: 1 });
-            currentScale = (containerWidth * 0.98) / viewport.width;
-            const scaledViewport = page.getViewport({ scale: currentScale });
-            const pageContainer = document.createElement('div');
-            pageContainer.className = 'pdf-page-container mx-auto';
-            pageContainer.style.width = `${scaledViewport.width}px`;
-            pageContainer.style.height = `${scaledViewport.height}px`;
+            const wrap = document.createElement('div');
+            wrap.className = 'thumb-canvas-wrap';
             const canvas = document.createElement('canvas');
-            canvas.className = 'pdf-page-canvas';
-            canvas.width = scaledViewport.width;
-            canvas.height = scaledViewport.height;
-            const overlay = document.createElement('div');
-            overlay.className = 'interactive-overlay';
-            overlay.id = `page-${pageNum}-overlay`;
-            overlay.addEventListener('click', () => selectObject(null));
-            pageContainer.append(canvas, overlay);
-            pdfViewer.appendChild(pageContainer);
-            await page.render({ canvasContext: canvas.getContext('2d'), viewport: scaledViewport }).promise;
-        }
+            wrap.appendChild(canvas);
 
-        function removeObject(objInfo) {
-            if (selectedObjectInfo && selectedObjectInfo.id === objInfo.id) {
-                selectObject(null);
+            const bar = document.createElement('div');
+            bar.className = 'thumb-bar';
+            const left = document.createElement('div');
+            left.className = 'flex items-center gap-1';
+            const grip = iconTool('grip', 'Drag to reorder', null);
+            grip.classList.add('drag-grip');
+            const check = document.createElement('input');
+            check.type = 'checkbox'; check.className = 'page-check'; check.checked = page.selected;
+            check.onclick = (e) => { e.stopPropagation(); page.selected = check.checked; refreshChrome(); };
+            const num = document.createElement('span');
+            num.className = 'text-[11px] font-medium text-slate-500'; num.textContent = idx + 1;
+            left.append(grip, check, num);
+
+            const tools = document.createElement('div');
+            tools.className = 'thumb-tools';
+            tools.append(
+                iconTool('rotate', 'Rotate', (e) => { e.stopPropagation(); rotatePage(page); }),
+                iconTool('copy', 'Duplicate', (e) => { e.stopPropagation(); duplicatePage(page); }),
+                iconTool('trash', 'Delete', (e) => { e.stopPropagation(); deletePage(page); }, true),
+            );
+            bar.append(left, tools);
+            card.append(wrap, bar);
+            thumbs.appendChild(card);
+
+            card.onclick = () => setActive(page.id);
+            attachPointerReorder(grip, page);
+            renderThumbCanvas(page, canvas); // async, fire and forget
+        }
+    }
+
+    function iconTool(kind, title, onClick, danger) {
+        const b = document.createElement('button');
+        b.className = 'thumb-tool' + (danger ? ' danger' : '');
+        b.title = title; b.onclick = onClick;
+        const paths = {
+            rotate: '<path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>',
+            copy: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+            trash: '<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>',
+            grip: '<circle cx="9" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="15" cy="18" r="1.4"/>',
+        };
+        const fill = kind === 'grip' ? 'currentColor' : 'none';
+        b.innerHTML = `<svg viewBox="0 0 24 24" fill="${fill}" stroke="currentColor" stroke-width="2">${paths[kind]}</svg>`;
+        return b;
+    }
+
+    async function renderThumbCanvas(page, canvas) {
+        const src = sources[page.sourceId];
+        const pdfPage = await src.pdfjsDoc.getPage(page.srcIndex + 1);
+        const rot = (pdfPage.rotate + page.rotation) % 360;
+        const base = pdfPage.getViewport({ scale: 1, rotation: rot });
+        const scale = 150 / base.width;
+        const vp = pdfPage.getViewport({ scale, rotation: rot });
+        canvas.width = vp.width; canvas.height = vp.height;
+        await pdfPage.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+    }
+
+    // ---------- Pointer-based reorder (works for mouse AND touch) ----------
+    function clearDropIndicators() {
+        thumbs.querySelectorAll('.thumb').forEach(c => c.classList.remove('drop-before', 'drop-after'));
+    }
+    // Find the insertion target for a pointer position over the thumbnail grid.
+    function dropTargetAt(x, y) {
+        const cards = [...thumbs.querySelectorAll('.thumb')];
+        for (const c of cards) {
+            const r = c.getBoundingClientRect();
+            if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
+                return { card: c, pageId: c.dataset.pageId, after: x > r.left + r.width / 2 };
             }
-            objInfo.element.remove();
-            addedObjects = addedObjects.filter(obj => obj.id !== objInfo.id);
         }
+        // Not directly over a card: drop after the last card that starts above the pointer.
+        let best = null;
+        for (const c of cards) { if (y >= c.getBoundingClientRect().top) best = c; }
+        if (best) return { card: best, pageId: best.dataset.pageId, after: true };
+        if (cards.length) return { card: cards[0], pageId: cards[0].dataset.pageId, after: false };
+        return null;
+    }
+    function attachPointerReorder(grip, page) {
+        grip.addEventListener('click', (e) => e.stopPropagation());
+        grip.addEventListener('pointerdown', (e) => {
+            if (e.button && e.button !== 0) return;
+            e.preventDefault(); e.stopPropagation();
+            const card = grip.closest('.thumb');
+            const start = { x: e.clientX, y: e.clientY };
+            let active = false;
+            grip.setPointerCapture(e.pointerId);
 
-        function addObjectToPage(obj) {
-            const overlay = document.getElementById('page-1-overlay');
-            if (!overlay) return;
-            const objectDiv = document.createElement('div');
-            objectDiv.className = 'draggable-object';
-            if (obj.type === 'text') {
-                objectDiv.classList.add('draggable-text');
-                objectDiv.textContent = obj.text;
-                objectDiv.style.fontSize = `${obj.fontSize}px`;
-                objectDiv.style.color = obj.color;
-                objectDiv.style.width = `${obj.width}px`;
-                objectDiv.style.height = `${obj.height}px`;
-            } else if (obj.type === 'image') {
-                objectDiv.classList.add('draggable-image');
-                const img = document.createElement('img');
-                img.src = obj.data;
-                objectDiv.append(img);
-                objectDiv.style.width = `${obj.width}px`;
-                objectDiv.style.height = `${obj.height}px`;
-            }
-            const resizeHandle = document.createElement('div');
-            resizeHandle.className = 'resize-handle';
-            const deleteHandle = document.createElement('div');
-            deleteHandle.className = 'delete-handle';
-            deleteHandle.innerHTML = '&times;';
-            objectDiv.append(resizeHandle, deleteHandle);
-            objectDiv.style.left = `50px`;
-            objectDiv.style.top = `50px`;
-            overlay.appendChild(objectDiv);
-            const objectInfo = { ...obj, id: `obj-${Date.now()}`, x: 50, y: 50, page: 1, element: objectDiv };
-            addedObjects.push(objectInfo);
-            deleteHandle.addEventListener('click', (e) => { e.stopPropagation(); removeObject(objectInfo); });
-            addInteractionHandlers(objectInfo);
-            selectObject(objectInfo);
+            const move = (ev) => {
+                if (!active) {
+                    if (Math.hypot(ev.clientX - start.x, ev.clientY - start.y) < 6) return;
+                    active = true; card.classList.add('dragging');
+                }
+                clearDropIndicators();
+                const t = dropTargetAt(ev.clientX, ev.clientY);
+                if (t && t.pageId !== page.id) t.card.classList.add(t.after ? 'drop-after' : 'drop-before');
+            };
+            const end = (ev) => {
+                grip.releasePointerCapture(e.pointerId);
+                grip.removeEventListener('pointermove', move);
+                grip.removeEventListener('pointerup', end);
+                grip.removeEventListener('pointercancel', end);
+                card.classList.remove('dragging');
+                if (active) {
+                    const t = dropTargetAt(ev.clientX, ev.clientY);
+                    if (t) reorder(page.id, t.pageId, t.after);
+                }
+                clearDropIndicators();
+            };
+            grip.addEventListener('pointermove', move);
+            grip.addEventListener('pointerup', end);
+            grip.addEventListener('pointercancel', end);
+        });
+    }
+
+    async function reorder(fromId, toId, after) {
+        if (!fromId || fromId === toId) return;
+        record();
+        const fromIdx = pages.findIndex(p => p.id === fromId);
+        const [moved] = pages.splice(fromIdx, 1);
+        let toIdx = pages.findIndex(p => p.id === toId);
+        if (after) toIdx += 1;
+        pages.splice(toIdx, 0, moved);
+        await renderThumbnails();
+        refreshChrome();
+    }
+
+    // ---------- Page ops ----------
+    function rotatePage(page) {
+        record();
+        // rotate annotations bound to this page by +90 (display space)
+        annotations.filter(a => a.pageId === page.id).forEach(a => {
+            const { nx, ny, nw, nh } = a;
+            a.nx = 1 - (ny + nh); a.ny = nx; a.nw = nh; a.nh = nw;
+        });
+        page.rotation = (page.rotation + 90) % 360;
+        renderThumbnails();
+        if (page.id === activePageId) renderMain();
+    }
+
+    async function duplicatePage(page) {
+        record();
+        const idx = pages.findIndex(p => p.id === page.id);
+        const copy = { ...page, id: nid('pg'), selected: false };
+        pages.splice(idx + 1, 0, copy);
+        // duplicate its annotations
+        annotations.filter(a => a.pageId === page.id).forEach(a => {
+            annotations.push({ ...a, id: nid('ann'), pageId: copy.id });
+        });
+        await renderThumbnails();
+        refreshChrome();
+    }
+
+    async function deletePage(page) {
+        if (pages.length === 1) { toast('Cannot delete the last page.'); return; }
+        record();
+        const idx = pages.findIndex(p => p.id === page.id);
+        pages.splice(idx, 1);
+        annotations = annotations.filter(a => a.pageId !== page.id);
+        if (activePageId === page.id) activePageId = pages[Math.min(idx, pages.length - 1)].id;
+        await renderThumbnails();
+        await renderMain();
+        refreshChrome();
+    }
+
+    $('delete-page-btn').onclick = () => { const p = pages.find(p => p.id === activePageId); if (p) deletePage(p); };
+    $('rotate-page-btn').onclick = () => { const p = pages.find(p => p.id === activePageId); if (p) rotatePage(p); };
+
+    // ---------- Select all ----------
+    $('select-all').onclick = (e) => { pages.forEach(p => p.selected = e.target.checked); renderThumbnails(); refreshChrome(); };
+
+    // ---------- Active page + main render ----------
+    async function setActive(id) {
+        if (isMobile()) closeDrawer(); // reveal the editor after picking a page
+        if (activePageId === id) return;
+        activePageId = id; selectAnn(null);
+        thumbs.querySelectorAll('.thumb').forEach(c => c.classList.toggle('active', c.dataset.pageId === id));
+        const card = thumbs.querySelector(`.thumb[data-page-id="${id}"]`);
+        if (card) card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        await renderMain();
+    }
+
+    async function renderMain() {
+        const page = pages.find(p => p.id === activePageId);
+        if (!page) return;
+        const src = sources[page.sourceId];
+        const pdfPage = await src.pdfjsDoc.getPage(page.srcIndex + 1);
+        const rot = (pdfPage.rotate + page.rotation) % 360;
+        const stage = $('stage');
+        const avail = Math.min(stage.clientWidth - 48, 900);
+        const base = pdfPage.getViewport({ scale: 1, rotation: rot });
+        renderScale = avail / base.width;
+        const vp = pdfPage.getViewport({ scale: renderScale, rotation: rot });
+        dispW = vp.width; dispH = vp.height;
+        pageCanvas.width = dispW; pageCanvas.height = dispH;
+        pageContainer.style.width = dispW + 'px'; pageContainer.style.height = dispH + 'px';
+        await pdfPage.render({ canvasContext: pageCanvas.getContext('2d'), viewport: vp }).promise;
+        const idx = pages.findIndex(p => p.id === page.id);
+        $('page-indicator').textContent = `Page ${idx + 1} of ${pages.length}  ·  ${src.name}`;
+        renderOverlay();
+    }
+
+    function renderOverlay() {
+        overlay.innerHTML = '';
+        annotations.filter(a => a.pageId === activePageId).forEach(renderAnn);
+    }
+    overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) selectAnn(null); });
+
+    // ---------- Annotations ----------
+    function addAnnotation(base) {
+        record();
+        const ann = Object.assign({
+            id: nid('ann'), pageId: activePageId,
+            nx: 0.12, ny: 0.12, nw: 0.25, nh: 0.08,
+        }, base);
+        annotations.push(ann);
+        renderAnn(ann);
+        selectAnn(ann.id);
+        return ann;
+    }
+
+    function renderAnn(ann) {
+        const el = document.createElement('div');
+        el.className = 'obj obj-' + ann.type;
+        el.dataset.annId = ann.id;
+        el.style.left = ann.nx * dispW + 'px';
+        el.style.top = ann.ny * dispH + 'px';
+        el.style.width = ann.nw * dispW + 'px';
+        el.style.height = ann.nh * dispH + 'px';
+
+        if (ann.type === 'text') {
+            el.textContent = ann.text;
+            el.style.fontSize = (ann.nfs * dispH) + 'px';
+            el.style.color = ann.color;
+        } else {
+            const img = document.createElement('img'); img.src = ann.data; el.appendChild(img);
         }
+        const rh = document.createElement('div'); rh.className = 'handle resize-handle';
+        const dh = document.createElement('div'); dh.className = 'handle delete-handle'; dh.innerHTML = '&times;';
+        dh.onclick = (e) => { e.stopPropagation(); removeAnn(ann.id); };
+        el.append(rh, dh);
+        overlay.appendChild(el);
+        if (ann.id === selectedAnn()) el.classList.add('selected');
+        wireAnn(el, ann, rh);
+    }
 
-        function addInteractionHandlers(objInfo) {
-            const element = objInfo.element;
-            let isDraggable = true;
-            let isDragging = false, isResizing = false;
-            let startX, startY, startWidth, startHeight;
+    function selectedAnn() { return selectedAnnId; }
+    function selectAnn(id) {
+        selectedAnnId = id;
+        overlay.querySelectorAll('.obj').forEach(o => o.classList.toggle('selected', o.dataset.annId === id));
+        const ann = annotations.find(a => a.id === id);
+        const isText = ann && ann.type === 'text';
+        $('text-props').classList.toggle('hidden', !isText);
+        $('text-props').classList.toggle('flex', !!isText);
+        if (isText) { $('font-size').value = Math.round(ann.nfs * dispH); $('text-color').value = ann.color; }
+    }
 
-            // FIX: Stop click events on the object from bubbling to the overlay,
-            // which would cause an immediate deselection.
-            element.addEventListener('click', (e) => {
-                e.stopPropagation();
+    function removeAnn(id) {
+        record();
+        if (selectedAnnId === id) selectAnn(null);
+        annotations = annotations.filter(a => a.id !== id);
+        const el = overlay.querySelector(`.obj[data-ann-id="${id}"]`);
+        if (el) el.remove();
+    }
+
+    function wireAnn(el, ann, resizeHandle) {
+        el.addEventListener('click', (e) => e.stopPropagation());
+        let dragging = false, resizing = false, sx, sy, sl, st, sw, sh, editable = false, moved = false;
+
+        if (ann.type === 'text') {
+            el.addEventListener('dblclick', (e) => {
+                e.stopPropagation(); editable = true;
+                record(); el._preEdit = el.textContent;
+                el.contentEditable = true; el.focus();
+                document.getSelection().selectAllChildren(el);
             });
+            el.addEventListener('blur', () => {
+                editable = false; el.contentEditable = false; ann.text = el.textContent;
+                // discard the pre-edit snapshot if nothing actually changed
+                if (el._preEdit === el.textContent && undoStack.length) { undoStack.pop(); updateHistoryButtons(); }
+                el._preEdit = undefined;
+            });
+        }
+        const pt = (e) => e.touches ? e.touches[0] : e;
 
-            if (objInfo.type === 'text') {
-                element.addEventListener('dblclick', (e) => {
-                    e.stopPropagation();
-                    isDraggable = false;
-                    element.contentEditable = true;
-                    element.focus();
-                });
-                element.addEventListener('blur', () => {
-                    isDraggable = true;
-                    element.contentEditable = false;
-                    objInfo.text = element.textContent;
-                });
+        function onMove(e) {
+            if (!dragging && !resizing) return;
+            e.preventDefault();
+            if (!moved) { record(); moved = true; }
+            const c = pt(e);
+            if (dragging) {
+                let nl = Math.max(0, Math.min(c.clientX - sx, dispW - el.offsetWidth));
+                let nt = Math.max(0, Math.min(c.clientY - sy, dispH - el.offsetHeight));
+                el.style.left = nl + 'px'; el.style.top = nt + 'px';
+            } else {
+                const nw = Math.max(24, sw + (c.clientX - sx));
+                const nh = Math.max(16, sh + (c.clientY - sy));
+                el.style.width = nw + 'px'; el.style.height = nh + 'px';
             }
-
-            function getClientCoords(e) { return e.touches ? e.touches[0] : e; }
-
-            function onMove(e) {
-                if (!isDragging && !isResizing) return;
-                e.preventDefault();
-                const coords = getClientCoords(e);
-                if (isDragging) {
-                    const parentRect = element.parentElement.getBoundingClientRect();
-                    let newX = coords.x - startX; let newY = coords.y - startY;
-                    newX = Math.max(0, Math.min(newX, parentRect.width - element.offsetWidth));
-                    newY = Math.max(0, Math.min(newY, parentRect.height - element.offsetHeight));
-                    element.style.left = `${newX}px`; element.style.top = `${newY}px`;
-                } else if (isResizing) {
-                    const newWidth = startWidth + (coords.x - startX);
-                    const newHeight = startHeight + (coords.y - startY);
-                    if (newWidth > 20) element.style.width = `${newWidth}px`;
-                    if (newHeight > 20) element.style.height = `${newHeight}px`;
-                }
+        }
+        function onEnd() {
+            if (dragging || resizing) {
+                ann.nx = el.offsetLeft / dispW; ann.ny = el.offsetTop / dispH;
+                ann.nw = el.offsetWidth / dispW; ann.nh = el.offsetHeight / dispH;
             }
+            dragging = resizing = false; moved = false;
+            document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onEnd);
+            document.removeEventListener('touchmove', onMove); document.removeEventListener('touchend', onEnd);
+        }
+        function onStart(e) {
+            if (e.target.classList.contains('delete-handle') || editable) return;
+            selectAnn(ann.id); e.stopPropagation();
+            const c = pt(e);
+            if (e.target === resizeHandle) {
+                e.preventDefault(); resizing = true; sx = c.clientX; sy = c.clientY; sw = el.offsetWidth; sh = el.offsetHeight;
+            } else {
+                dragging = true; sx = c.clientX - el.offsetLeft; sy = c.clientY - el.offsetTop;
+            }
+            document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onEnd);
+            document.addEventListener('touchmove', onMove, { passive: false }); document.addEventListener('touchend', onEnd);
+        }
+        el.addEventListener('mousedown', onStart);
+        el.addEventListener('touchstart', onStart, { passive: false });
+    }
 
-            function onEnd() {
-                if (isDragging || isResizing) {
-                    objInfo.x = element.offsetLeft;
-                    objInfo.y = element.offsetTop;
-                    if (isResizing) {
-                        objInfo.width = element.offsetWidth;
-                        objInfo.height = element.offsetHeight;
+    // ---------- Toolbar: add text / image ----------
+    $('add-text-btn').onclick = () => {
+        if (!activePageId) return;
+        addAnnotation({ type: 'text', text: 'Double-click to edit', color: '#111827', nfs: 16 / dispH, nw: 0.35, nh: 0.06 });
+    };
+    $('add-image-btn').onclick = () => imageUpload.click();
+    imageUpload.onchange = (e) => {
+        const file = e.target.files[0]; imageUpload.value = '';
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            const img = new Image();
+            img.onload = () => {
+                const ratio = img.height / img.width;
+                const nw = 0.3, nh = (nw * dispW * ratio) / dispH;
+                addAnnotation({ type: 'image', data: reader.result, mime: file.type, nw, nh });
+            };
+            img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+    };
+
+    // Text property controls. Snapshot on focus, commit to history only if changed.
+    let pendingSnapshot = null;
+    const beginEdit = () => { pendingSnapshot = snapshot(); };
+    const commitEdit = () => {
+        if (!pendingSnapshot) return;
+        undoStack.push(pendingSnapshot);
+        if (undoStack.length > HISTORY_LIMIT) undoStack.shift();
+        redoStack = []; updateHistoryButtons(); pendingSnapshot = null;
+    };
+    $('font-size').onfocus = beginEdit;
+    $('font-size').onchange = commitEdit;
+    $('font-size').oninput = (e) => updateText({ nfs: parseInt(e.target.value || '16', 10) / dispH });
+    $('text-color').onfocus = beginEdit;
+    $('text-color').onchange = commitEdit;
+    $('font-inc').onclick = () => stepFont(1);
+    $('font-dec').onclick = () => stepFont(-1);
+    function stepFont(d) {
+        const ann = annotations.find(a => a.id === selectedAnnId);
+        if (!ann || ann.type !== 'text') return;
+        record();
+        const px = Math.max(4, Math.round(ann.nfs * dispH) + d);
+        $('font-size').value = px; updateText({ nfs: px / dispH });
+    }
+    $('text-color').oninput = (e) => updateText({ color: e.target.value });
+    function updateText(props) {
+        const ann = annotations.find(a => a.id === selectedAnnId);
+        if (!ann || ann.type !== 'text') return;
+        Object.assign(ann, props);
+        const el = overlay.querySelector(`.obj[data-ann-id="${ann.id}"]`);
+        if (el) { if (props.nfs != null) el.style.fontSize = (ann.nfs * dispH) + 'px'; if (props.color) el.style.color = ann.color; }
+    }
+
+    // Keyboard: undo/redo + delete selected annotation
+    document.addEventListener('keydown', (e) => {
+        const meta = e.metaKey || e.ctrlKey;
+        const typing = /^(INPUT|TEXTAREA)$/.test(e.target.tagName) || e.target.isContentEditable;
+        if (meta && e.key.toLowerCase() === 'z') {
+            if (typing) return;
+            e.preventDefault();
+            if (e.shiftKey) redo(); else undo();
+            return;
+        }
+        if (meta && e.key.toLowerCase() === 'y') { if (typing) return; e.preventDefault(); redo(); return; }
+        if ((e.key === 'Delete' || e.key === 'Backspace') && selectedAnnId && !typing) {
+            e.preventDefault(); removeAnn(selectedAnnId);
+        }
+    });
+
+    // ---------- Signature ----------
+    const sigCanvas = $('signature-canvas'), sigCtx = sigCanvas.getContext('2d');
+    let drawing = false, lastX = 0, lastY = 0;
+    $('add-signature-btn').onclick = () => {
+        $('signature-modal').classList.remove('hidden');
+        const rect = sigCanvas.getBoundingClientRect();
+        sigCanvas.width = rect.width; sigCanvas.height = 200;
+        sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
+    };
+    $('cancel-signature-btn').onclick = () => $('signature-modal').classList.add('hidden');
+    $('clear-signature-btn').onclick = () => sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
+    $('save-signature-btn').onclick = () => {
+        if (isBlank(sigCanvas)) { toast('Draw a signature first.'); return; }
+        const data = sigCanvas.toDataURL('image/png');
+        const ratio = sigCanvas.height / sigCanvas.width;
+        const nw = 0.28, nh = (nw * dispW * ratio) / dispH;
+        addAnnotation({ type: 'image', data, mime: 'image/png', nw, nh });
+        $('signature-modal').classList.add('hidden');
+    };
+    const sigPos = (e) => { const r = sigCanvas.getBoundingClientRect(); const ev = e.touches ? e.touches[0] : e; return { x: ev.clientX - r.left, y: ev.clientY - r.top }; };
+    function sigStart(e) { e.preventDefault(); drawing = true; const p = sigPos(e); lastX = p.x; lastY = p.y; }
+    function sigDraw(e) { if (!drawing) return; e.preventDefault(); const p = sigPos(e); sigCtx.strokeStyle = $('signature-color').value; sigCtx.lineWidth = 2.5; sigCtx.lineCap = 'round'; sigCtx.lineJoin = 'round'; sigCtx.beginPath(); sigCtx.moveTo(lastX, lastY); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); lastX = p.x; lastY = p.y; }
+    function sigStop() { drawing = false; }
+    sigCanvas.addEventListener('mousedown', sigStart); sigCanvas.addEventListener('mousemove', sigDraw);
+    sigCanvas.addEventListener('mouseup', sigStop); sigCanvas.addEventListener('mouseout', sigStop);
+    sigCanvas.addEventListener('touchstart', sigStart, { passive: false }); sigCanvas.addEventListener('touchmove', sigDraw, { passive: false }); sigCanvas.addEventListener('touchend', sigStop);
+    function isBlank(c) { return !c.getContext('2d').getImageData(0, 0, c.width, c.height).data.some(x => x !== 0); }
+
+    // ---------- Coordinate mapping (display -> unrotated PDF) ----------
+    // dx, dy: display-space point (y-down, origin top-left) in PDF units. W,H: unrotated media size.
+    function mapToPdf(dx, dy, W, H, rot) {
+        switch (((rot % 360) + 360) % 360) {
+            case 90:  return { x: dy,       y: dx };
+            case 180: return { x: W - dx,   y: dy };
+            case 270: return { x: W - dy,   y: H - dx };
+            default:  return { x: dx,       y: H - dy };
+        }
+    }
+
+    function hexToRgb(hex) {
+        const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return m ? { r: parseInt(m[1], 16) / 255, g: parseInt(m[2], 16) / 255, b: parseInt(m[3], 16) / 255 } : { r: 0, g: 0, b: 0 };
+    }
+
+    // ---------- Shared PDF builder ----------
+    // Builds a single PDF (Uint8Array) from a list of working pages, baking in
+    // rotation and annotations. Reused by both Export and Split.
+    async function buildPdf(pageList) {
+        const out = await PDFDocument.create();
+        const font = await out.embedFont(StandardFonts.Helvetica);
+        const loaded = {}; // sourceId -> PDFDocument (cache across pages)
+        for (const page of pageList) {
+            if (!loaded[page.sourceId]) loaded[page.sourceId] = await PDFDocument.load(sources[page.sourceId].bytes.slice());
+            const [copied] = await out.copyPages(loaded[page.sourceId], [page.srcIndex]);
+            const intrinsic = copied.getRotation().angle;
+            const rot = ((intrinsic + page.rotation) % 360 + 360) % 360;
+            copied.setRotation(degrees(rot));
+            out.addPage(copied);
+
+            const { width: W, height: H } = copied.getSize();
+            const DW = (rot === 90 || rot === 270) ? H : W;
+            const DH = (rot === 90 || rot === 270) ? W : H;
+
+            for (const ann of annotations.filter(a => a.pageId === page.id)) {
+                if (ann.type === 'text') {
+                    const size = ann.nfs * DH;
+                    const color = hexToRgb(ann.color);
+                    const maxW = ann.nw * DW;
+                    const words = (ann.text || '').split(/\s+/);
+                    const lines = []; let line = words[0] || '';
+                    for (let i = 1; i < words.length; i++) {
+                        const test = line + ' ' + words[i];
+                        if (font.widthOfTextAtSize(test, size) < maxW) line = test;
+                        else { lines.push(line); line = words[i]; }
                     }
-                }
-                isDragging = false; 
-                isResizing = false;
-
-                document.removeEventListener('mousemove', onMove);
-                document.removeEventListener('mouseup', onEnd);
-                document.removeEventListener('touchmove', onMove);
-                document.removeEventListener('touchend', onEnd);
-            }
-
-            function onStart(e) {
-                if (e.target.classList.contains('delete-handle') || element.contentEditable === 'true') return;
-                
-                selectObject(objInfo);
-                e.stopPropagation();
-                
-                const coords = getClientCoords(e);
-                if (e.target === element.querySelector('.resize-handle')) {
-                    e.preventDefault(); isResizing = true;
-                    startX = coords.x; startY = coords.y; startWidth = element.offsetWidth; startHeight = element.offsetHeight;
-                } else if (isDraggable) {
-                    isDragging = true;
-                    startX = coords.x - element.offsetLeft; startY = coords.y - element.offsetTop;
-                }
-
-                if (isDragging || isResizing) {
-                    document.addEventListener('mousemove', onMove);
-                    document.addEventListener('mouseup', onEnd);
-                    document.addEventListener('touchmove', onMove, { passive: false });
-                    document.addEventListener('touchend', onEnd);
+                    lines.push(line);
+                    lines.forEach((ln, i) => {
+                        if (!ln) return;
+                        const dx = ann.nx * DW;
+                        const dy = ann.ny * DH + size * (i + 1);
+                        const p = mapToPdf(dx, dy, W, H, rot);
+                        copied.drawText(ln, { x: p.x, y: p.y, font, size, color: rgb(color.r, color.g, color.b), rotate: degrees(rot) });
+                    });
+                } else {
+                    const img = ann.mime === 'image/jpeg' ? await out.embedJpg(ann.data) : await out.embedPng(ann.data);
+                    const w = ann.nw * DW, h = ann.nh * DH;
+                    const dx = ann.nx * DW, dy = ann.ny * DH + h; // display bottom-left
+                    const p = mapToPdf(dx, dy, W, H, rot);
+                    copied.drawImage(img, { x: p.x, y: p.y, width: w, height: h, rotate: degrees(rot) });
                 }
             }
-
-            element.addEventListener('mousedown', onStart);
-            element.addEventListener('touchstart', onStart, { passive: false });
         }
-        
-        function hexToRgb(hex) {
-            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-            return result ? { r: parseInt(result[1], 16) / 255, g: parseInt(result[2], 16) / 255, b: parseInt(result[3], 16) / 255 } : { r: 0, g: 0, b: 0 };
-        }
-        
-        async function savePdf() {
-            if (!originalPdfBytes) return;
-            savePdfBtn.disabled = true;
-            savePdfBtn.textContent = 'Saving...';
-            try {
-                const pdfLibDoc = await PDFDocument.load(originalPdfBytes);
-                const pages = pdfLibDoc.getPages();
-                const font = await pdfLibDoc.embedFont(StandardFonts.Helvetica);
+        return out.save();
+    }
 
-                for (const obj of addedObjects) {
-                    const page = pages[obj.page - 1];
-                    const { height: pagePdfHeight } = page.getSize();
-                    const scale = currentScale;
-                    const pdfX = obj.x / scale;
-                    const pdfY = pagePdfHeight - (obj.y / scale);
+    function download(blob, filename) {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename; a.click();
+        URL.revokeObjectURL(a.href);
+    }
 
-                    if (obj.type === 'text') {
-                        const fontSize = (obj.fontSize || 16) / scale;
-                        const color = hexToRgb(obj.color);
-                        const maxWidth = obj.width / scale;
-                        
-                        const text = obj.text || '';
-                        const words = text.split(' ');
-                        let lines = [];
-                        let currentLine = words[0] || '';
+    // ---------- Export ----------
+    $('export-btn').onclick = () => {
+        const anySel = pages.some(p => p.selected);
+        $('export-modal').classList.remove('hidden');
+        setScope('export-scope', anySel ? 'selected' : 'all');
+    };
+    $('export-cancel-btn').onclick = () => $('export-modal').classList.add('hidden');
+    const scopeValue = {};
+    function setScope(groupId, s) {
+        scopeValue[groupId] = s;
+        $(groupId).querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.scope === s));
+    }
+    ['export-scope', 'split-scope'].forEach(g => $(g).querySelectorAll('button').forEach(b => b.onclick = () => setScope(g, b.dataset.scope)));
 
-                        for (let i = 1; i < words.length; i++) {
-                            const word = words[i];
-                            const width = font.widthOfTextAtSize(currentLine + " " + word, fontSize);
-                            if (width < maxWidth) {
-                                currentLine += " " + word;
-                            } else {
-                                lines.push(currentLine);
-                                currentLine = word;
-                            }
-                        }
-                        lines.push(currentLine);
-                        
-                        let yOffset = pdfY - fontSize;
-                        const lineHeight = fontSize * 1.2;
-                        
-                        lines.forEach(line => {
-                             if (line) {
-                                page.drawText(line, { x: pdfX, y: yOffset, font, size: fontSize, color: rgb(color.r, color.g, color.b), lineHeight });
-                             }
-                             yOffset -= lineHeight;
-                        });
+    $('export-confirm-btn').onclick = async () => {
+        const list = scopeValue['export-scope'] === 'selected' ? pages.filter(p => p.selected) : pages;
+        if (!list.length) { toast('No pages selected.'); return; }
+        $('export-modal').classList.add('hidden');
+        showLoading('Building PDF…');
+        try {
+            const bytes = await buildPdf(list);
+            const name = ($('export-name').value || 'edited-document').replace(/\.pdf$/i, '');
+            download(new Blob([bytes], { type: 'application/pdf' }), name + '.pdf');
+            toast(`Exported ${list.length} page${list.length > 1 ? 's' : ''}`);
+        } catch (err) {
+            console.error(err); toast('Export failed. See console for details.');
+        } finally { hideLoading(); }
+    };
 
-                    } else if (obj.type === 'image') {
-                        const pngImage = await pdfLibDoc.embedPng(obj.data);
-                        const width = obj.width / scale;
-                        const height = obj.height / scale;
-                        page.drawImage(pngImage, { x: pdfX, y: pdfY - height, width, height });
-                    }
-                }
-
-                const pdfBytes = await pdfLibDoc.save();
-                const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = 'edited_document.pdf';
-                link.click();
-            } catch (error) {
-                console.error("Error saving PDF:", error);
-            } finally {
-                savePdfBtn.disabled = false;
-                savePdfBtn.textContent = 'Save & Download';
+    // ---------- Split (one PDF per page, delivered as a ZIP) ----------
+    $('split-btn').onclick = () => {
+        const anySel = pages.some(p => p.selected);
+        $('split-modal').classList.remove('hidden');
+        setScope('split-scope', anySel ? 'selected' : 'all');
+    };
+    $('split-cancel-btn').onclick = () => $('split-modal').classList.add('hidden');
+    $('split-confirm-btn').onclick = async () => {
+        const list = scopeValue['split-scope'] === 'selected' ? pages.filter(p => p.selected) : pages;
+        if (!list.length) { toast('No pages selected.'); return; }
+        $('split-modal').classList.add('hidden');
+        showLoading(`Splitting ${list.length} page${list.length > 1 ? 's' : ''}…`);
+        try {
+            const pad = String(list.length).length;
+            const zip = new JSZip();
+            for (let i = 0; i < list.length; i++) {
+                showLoading(`Building page ${i + 1} of ${list.length}…`);
+                const bytes = await buildPdf([list[i]]);
+                zip.file(`page-${String(i + 1).padStart(pad, '0')}.pdf`, bytes);
             }
-        }
+            const blob = await zip.generateAsync({ type: 'blob' });
+            const name = ($('split-name').value || 'split-pages').replace(/\.zip$/i, '');
+            download(blob, name + '.zip');
+            toast(`Split into ${list.length} file${list.length > 1 ? 's' : ''}`);
+        } catch (err) {
+            console.error(err); toast('Split failed. See console for details.');
+        } finally { hideLoading(); }
+    };
+
+    // ---------- Drag & drop files onto stage ----------
+    const stage = $('stage');
+    ['dragenter', 'dragover'].forEach(ev => stage.addEventListener(ev, (e) => { e.preventDefault(); stage.classList.add('dropzone-active'); }));
+    ['dragleave', 'drop'].forEach(ev => stage.addEventListener(ev, (e) => { e.preventDefault(); if (ev === 'drop' || e.target === stage) stage.classList.remove('dropzone-active'); }));
+    stage.addEventListener('drop', (e) => { if (e.dataTransfer.files.length) loadFiles(e.dataTransfer.files); });
+
+    // ---------- Responsive re-render ----------
+    let resizeTimer;
+    window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (activePageId) renderMain(); }, 150); });
     </script>
 </body>
 </html>
