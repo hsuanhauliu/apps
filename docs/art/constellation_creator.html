@@ -12,122 +12,214 @@
         xintegrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A=="
         crossorigin="anonymous" referrerpolicy="no-referrer" />
     <style>
+        :root {
+            --accent: #06b6d4;
+            --accent-strong: #0891b2;
+            --line: rgba(148, 163, 184, .16);
+        }
+        * { -webkit-tap-highlight-color: transparent; }
         body {
             font-family: 'Inter', sans-serif;
             overflow: hidden;
             /* Prevent body scroll */
+            color: #e2e8f0;
+            background:
+                radial-gradient(1100px 700px at 82% -12%, #0b3a4a 0%, rgba(11,58,74,0) 60%),
+                radial-gradient(900px 650px at -8% 108%, #0c1a33 0%, rgba(12,26,51,0) 55%),
+                #05070f;
+        }
+        /* Faint starfield behind everything */
+        body::before {
+            content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: .6;
+            background-repeat: no-repeat;
+            background-image:
+                radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,.7), transparent),
+                radial-gradient(1px 1px at 70% 60%, rgba(255,255,255,.5), transparent),
+                radial-gradient(1px 1px at 40% 80%, rgba(255,255,255,.6), transparent),
+                radial-gradient(1.5px 1.5px at 85% 22%, rgba(255,255,255,.5), transparent),
+                radial-gradient(1px 1px at 55% 12%, rgba(255,255,255,.45), transparent),
+                radial-gradient(1px 1px at 12% 68%, rgba(255,255,255,.4), transparent),
+                radial-gradient(1.5px 1.5px at 33% 48%, rgba(255,255,255,.4), transparent);
         }
 
-        #drawingCanvas {
-            cursor: crosshair;
-        }
+        #drawingCanvas { cursor: crosshair; }
 
+        /* Tool rail buttons */
+        .tool-btn {
+            width: 46px; height: 46px; border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            color: #94a3b8; background: transparent; cursor: pointer;
+            transition: all .16s ease; position: relative;
+        }
+        .tool-btn i { font-size: 1.05rem; }
+        .tool-btn:hover { background: rgba(255,255,255,.07); color: #f1f5f9; }
         .mode-btn.active {
-            background-color: #3b82f6;
-            color: white;
+            background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+            color: #fff;
+            box-shadow: 0 8px 20px -8px var(--accent), inset 0 1px 0 rgba(255,255,255,.2);
         }
+        /* Tooltip */
+        .tool-btn::after {
+            content: attr(data-tip);
+            position: absolute; left: calc(100% + 12px); top: 50%;
+            transform: translateY(-50%) scale(.96); transform-origin: left center;
+            background: #0b1222; color: #e2e8f0; border: 1px solid var(--line);
+            padding: .32rem .55rem; border-radius: .45rem; font-size: .72rem; font-weight: 500;
+            white-space: nowrap; opacity: 0; pointer-events: none; z-index: 60;
+            box-shadow: 0 8px 22px rgba(0,0,0,.45);
+            transition: opacity .14s ease, transform .14s ease;
+        }
+        .tool-btn:hover::after { opacity: 1; transform: translateY(-50%) scale(1); }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+            font-weight: 600; font-size: .85rem; padding: .55rem .95rem; border-radius: .65rem;
+            cursor: pointer; border: 1px solid transparent; white-space: nowrap;
+            transition: all .15s ease;
+        }
+        .btn i { font-size: .9em; }
+        .btn-primary { background: linear-gradient(180deg, var(--accent), var(--accent-strong)); color: #fff; box-shadow: 0 8px 20px -10px var(--accent); }
+        .btn-primary:hover { filter: brightness(1.08); }
+        .btn-ghost { background: rgba(255,255,255,.045); color: #cbd5e1; border-color: var(--line); }
+        .btn-ghost:hover { background: rgba(255,255,255,.09); color: #fff; border-color: rgba(148,163,184,.3); }
+        .btn-danger { background: rgba(251,113,133,.08); color: #fda4af; border-color: rgba(251,113,133,.28); }
+        .btn-danger:hover { background: rgba(251,113,133,.16); color: #fecdd3; }
+        .btn-lg { padding: .8rem 1.25rem; font-size: .95rem; border-radius: .8rem; }
+        .divider { width: 1px; height: 26px; background: var(--line); margin: 0 .2rem; }
+
+        /* Star shape picker */
+        .shape-btn {
+            width: 32px; height: 32px; border-radius: 8px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            color: #94a3b8; font-size: .8rem; transition: all .15s ease;
+        }
+        .shape-btn:hover { background: rgba(255,255,255,.08); color: #e2e8f0; }
+        .shape-btn.active { background: var(--accent-strong); color: #fff; }
 
         #notification {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: #ef4444;
-            color: white;
-            padding: 1rem 1.5rem;
-            border-radius: 0.5rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            z-index: 1000;
-            opacity: 0;
-            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
-            pointer-events: none;
+            position: fixed; top: 22px; left: 50%;
+            transform: translateX(-50%) translateY(-8px);
+            background: rgba(11, 18, 34, .92); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+            color: #e2e8f0; padding: .75rem 1.15rem; border-radius: .7rem; border: 1px solid var(--line);
+            box-shadow: 0 12px 34px rgba(0, 0, 0, .5); z-index: 1000; opacity: 0;
+            font-size: .88rem; font-weight: 500; pointer-events: none;
+            transition: opacity .3s ease, transform .3s ease;
         }
-
-        #notification.show {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0);
-        }
+        #notification.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
         #artboard {
-            position: absolute;
-            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
-            border: 2px solid #475569;
+            position: absolute; border-radius: 10px; overflow: hidden;
+            border: 1px solid rgba(148, 163, 184, .25);
+            box-shadow: 0 20px 60px -12px rgba(0, 0, 0, .8), 0 0 0 1px rgba(255, 255, 255, .06);
         }
 
-        #backgroundCanvas.blurred {
-            filter: blur(4px) brightness(60%);
-        }
+        #backgroundCanvas.blurred { filter: blur(4px) brightness(60%); }
     </style>
 </head>
 
-<body class="bg-slate-900 h-screen flex">
+<body class="h-screen flex">
 
     <!-- Left Toolbar -->
     <aside
-        class="bg-slate-950/50 backdrop-blur-sm border-r border-slate-700 text-white p-3 flex flex-col items-center space-y-4">
-        <h2 class="text-lg font-bold text-slate-300">Tools</h2>
-        <div class="flex flex-col items-center space-y-2">
-            <button id="addStarMode"
-                class="mode-btn p-3 rounded-lg transition-colors duration-200 text-slate-300 hover:bg-slate-700 w-12 h-12 flex items-center justify-center"
-                title="Add Stars">
-                <i class="fas fa-star fa-lg"></i>
+        class="relative z-30 bg-slate-950/40 backdrop-blur-md border-r border-white/10 px-2.5 py-4 flex flex-col items-center gap-3 shrink-0">
+        <div class="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-400/20 flex items-center justify-center text-cyan-300 mb-1">
+            <i class="fas fa-star"></i>
+        </div>
+        <div class="flex flex-col items-center gap-1.5">
+            <button id="addStarMode" class="mode-btn tool-btn" data-tip="Add stars" title="Add Stars">
+                <i class="fas fa-star"></i>
             </button>
-            <button id="connectStarMode"
-                class="mode-btn p-3 rounded-lg transition-colors duration-200 text-slate-300 hover:bg-slate-700 w-12 h-12 flex items-center justify-center"
-                title="Connect Stars">
-                <i class="fas fa-link fa-lg"></i>
+            <button id="connectStarMode" class="mode-btn tool-btn" data-tip="Connect stars" title="Connect Stars">
+                <i class="fas fa-link"></i>
             </button>
-            <button id="moveStarMode"
-                class="mode-btn p-3 rounded-lg transition-colors duration-200 text-slate-300 hover:bg-slate-700 w-12 h-12 flex items-center justify-center"
-                title="Move Stars">
-                <i class="fas fa-arrows-up-down-left-right fa-lg"></i>
-            </button>
-            <button id="blurBtn"
-                class="mode-btn p-3 rounded-lg transition-colors duration-200 text-slate-300 hover:bg-slate-700 hidden w-12 h-12 flex items-center justify-center"
-                title="Blur Background">
-                <i id="blurIcon" class="fas fa-eye fa-lg"></i>
+            <button id="moveStarMode" class="mode-btn tool-btn" data-tip="Move stars" title="Move Stars">
+                <i class="fas fa-arrows-up-down-left-right"></i>
             </button>
         </div>
+        <div class="w-8 h-px bg-white/10 my-0.5"></div>
+        <button id="blurBtn" class="mode-btn tool-btn hidden" data-tip="Toggle background blur" title="Blur Background">
+            <i id="blurIcon" class="fas fa-eye"></i>
+        </button>
     </aside>
 
     <!-- Main Content -->
-    <main class="flex-1 flex flex-col p-4 overflow-auto">
+    <main class="relative z-10 flex-1 min-w-0 flex flex-col p-3 sm:p-5">
         <div
-            class="bg-slate-800/50 backdrop-blur-sm border border-slate-700 p-6 rounded-xl shadow-lg flex-1 flex flex-col">
-            <div class="text-center mb-4">
-                <h1 class="text-3xl sm:text-4xl font-bold text-slate-100">Constellation Creator</h1>
-                <p class="text-slate-400 mt-2">Create your own constellations on any image.</p>
+            class="bg-slate-900/40 backdrop-blur-md border border-white/10 p-4 sm:p-5 rounded-2xl shadow-2xl flex-1 flex flex-col min-h-0">
+            <!-- Header + toolbar -->
+            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-b from-cyan-500 to-cyan-600 flex items-center justify-center text-white shadow-lg shadow-cyan-900/40 shrink-0">
+                        <i class="fas fa-star"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-white leading-tight">Constellation Creator</h1>
+                        <p class="text-slate-400 text-xs sm:text-sm">Draw your own constellations on any image or a blank night sky.</p>
+                    </div>
+                </div>
+                <div id="controls" class="flex flex-wrap items-center gap-2">
+                    <button id="downloadCombinedBtn" class="btn btn-primary" title="Download the image with your constellation">
+                        <i class="fas fa-image"></i> Download image
+                    </button>
+                    <button id="downloadDrawingBtn" class="btn btn-ghost" title="Download the drawing only (transparent background)">
+                        <i class="fas fa-pen-nib"></i> Download Drawing
+                    </button>
+                    <button id="exportJsonBtn" class="btn btn-ghost" title="Export as JSON">
+                        <i class="fas fa-file-export"></i> JSON
+                    </button>
+                    <span class="divider"></span>
+                    <button id="clearDrawingBtn" class="btn btn-ghost" title="Clear all stars and lines">
+                        <i class="fas fa-eraser"></i> Clear
+                    </button>
+                    <button id="resetBtn" class="btn btn-danger" title="Start over">
+                        <i class="fas fa-arrow-rotate-left"></i> Reset
+                    </button>
+                    <input type="file" id="imageLoader" class="hidden" accept="image/*" />
+                    <input type="file" id="jsonLoader" class="hidden" accept=".json" />
+                </div>
             </div>
-            <div id="controls" class="flex flex-wrap items-center justify-center gap-2 sm:gap-4 mb-4">
-                <button id="downloadCombinedBtn"
-                    class="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center gap-2">Download
-                    Image</button>
-                <button id="downloadDrawingBtn"
-                    class="bg-sky-600 hover:bg-sky-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center gap-2">Download
-                    Drawing</button>
-                <button id="exportJsonBtn"
-                    class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center gap-2">Export
-                    JSON</button>
-                <button id="clearDrawingBtn"
-                    class="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Clear</button>
-                <button id="resetBtn"
-                    class="bg-rose-700 hover:bg-rose-800 text-white font-bold py-2 px-4 rounded-lg transition-colors">Reset</button>
-                <input type="file" id="imageLoader" class="hidden" accept="image/*" /><input type="file" id="jsonLoader"
-                    class="hidden" accept=".json" />
+
+            <!-- Star style toolbar -->
+            <div class="flex items-center gap-3 flex-wrap mb-3 px-0.5">
+                <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Star</span>
+                <div id="shapeGroup" class="flex items-center gap-1 bg-white/5 border border-white/10 rounded-lg p-1">
+                    <button class="shape-btn active" data-shape="dot" title="Dot"><i class="fas fa-circle"></i></button>
+                    <button class="shape-btn" data-shape="star" title="5-point star"><i class="fas fa-star"></i></button>
+                    <button class="shape-btn" data-shape="sparkle" title="4-point sparkle"><i class="fas fa-asterisk"></i></button>
+                    <button class="shape-btn" data-shape="diamond" title="Diamond"><i class="fas fa-diamond"></i></button>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-slate-400">Size</span>
+                    <input type="range" id="starSize" min="3" max="20" value="7" class="w-28 accent-cyan-500 cursor-pointer">
+                    <span id="starSizeVal" class="text-xs text-slate-400 w-5 text-right tabular-nums">7</span>
+                </div>
             </div>
+
+            <!-- Canvas stage -->
             <div id="canvasContainer"
-                class="flex-1 w-full min-h-0 bg-black/50 rounded-lg overflow-hidden flex items-center justify-center shadow-inner relative">
+                class="flex-1 w-full min-h-0 rounded-xl overflow-hidden flex items-center justify-center relative border border-white/10"
+                style="background: radial-gradient(circle at 50% 38%, rgba(30,41,59,.55), rgba(2,6,15,.9));">
                 <div id="uploadPrompt"
-                    class="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-4 p-4">
-                    <label for="imageLoader"
-                        class="cursor-pointer bg-sky-600 hover:bg-sky-700 text-white font-bold py-3 px-5 rounded-lg transition-colors flex items-center gap-3 text-lg shadow-md">Upload
-                        Image</label>
-                    <button id="startBlankBtn"
-                        class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-5 rounded-lg transition-colors flex items-center gap-3 text-lg shadow-md">Blank
-                        Canvas</button>
-                    <label for="jsonLoader"
-                        class="cursor-pointer bg-purple-700 hover:bg-purple-600 text-white font-bold py-3 px-5 rounded-lg transition-colors flex items-center gap-3 text-lg shadow-md">Import
-                        from JSON</label>
+                    class="flex flex-col items-center justify-center gap-5 p-6 text-center max-w-md">
+                    <div class="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-400/20 flex items-center justify-center text-cyan-300">
+                        <i class="fas fa-wand-magic-sparkles fa-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-slate-100">Start a new constellation</h3>
+                        <p class="text-slate-400 text-sm mt-1">Upload a photo, begin on a blank sky, or import a saved design.</p>
+                    </div>
+                    <div class="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-3">
+                        <label for="imageLoader" class="btn btn-primary btn-lg cursor-pointer">
+                            <i class="fas fa-image"></i> Upload image
+                        </label>
+                        <button id="startBlankBtn" class="btn btn-ghost btn-lg">
+                            <i class="fas fa-moon"></i> Blank canvas
+                        </button>
+                        <label for="jsonLoader" class="btn btn-ghost btn-lg cursor-pointer">
+                            <i class="fas fa-file-import"></i> Import JSON
+                        </label>
+                    </div>
                 </div>
                 <div id="artboard" class="hidden">
                     <canvas id="backgroundCanvas" class="w-full h-full block"></canvas>
@@ -150,11 +242,13 @@
         const moveStarModeBtn = document.getElementById('moveStarMode'), blurBtn = document.getElementById('blurBtn'), blurIcon = document.getElementById('blurIcon');
         const downloadCombinedBtn = document.getElementById('downloadCombinedBtn'), downloadDrawingBtn = document.getElementById('downloadDrawingBtn');
         const exportJsonBtn = document.getElementById('exportJsonBtn'), startBlankBtn = document.getElementById('startBlankBtn');
+        const shapeGroup = document.getElementById('shapeGroup'), starSizeInput = document.getElementById('starSize'), starSizeVal = document.getElementById('starSizeVal');
 
         // State Management
         let backgroundImage = null, isFromUploadedImage = false, stars = [], lines = [], starIdCounter = 0;
         let mode = 'add', selectedStarForConnection = null, draggedStar = null, isStarDragging = false, isBlurred = false;
         const STAR_RADIUS = 7;
+        let currentShape = 'dot', currentSize = 7;
         let notificationTimeout;
 
         // Initial Setup
@@ -163,6 +257,15 @@
         // Event Listeners
         imageLoader.addEventListener('change', handleImageUpload);
         jsonLoader.addEventListener('change', handleJsonUpload);
+
+        shapeGroup.querySelectorAll('.shape-btn').forEach(btn => btn.addEventListener('click', () => {
+            currentShape = btn.dataset.shape;
+            shapeGroup.querySelectorAll('.shape-btn').forEach(b => b.classList.toggle('active', b === btn));
+        }));
+        starSizeInput.addEventListener('input', () => {
+            currentSize = parseInt(starSizeInput.value, 10);
+            starSizeVal.textContent = currentSize;
+        });
         startBlankBtn.addEventListener('click', () => handleStartBlank());
 
         addStarModeBtn.addEventListener('click', () => setMode('add'));
@@ -246,7 +349,9 @@
                 return {
                     id: starId,
                     x: (starData.x_percent / 100) * drawingCanvas.width,
-                    y: (starData.y_percent / 100) * drawingCanvas.height
+                    y: (starData.y_percent / 100) * drawingCanvas.height,
+                    shape: starData.shape || 'dot',
+                    size: starData.size || STAR_RADIUS
                 };
             });
             starIdCounter = maxId + 1;
@@ -303,7 +408,8 @@
             for (let i = stars.length - 1; i >= 0; i--) {
                 const star = stars[i];
                 const distance = Math.sqrt((star.x - x) ** 2 + (star.y - y) ** 2);
-                if (distance < STAR_RADIUS) return star;
+                // Use the star's own radius (with a comfortable minimum) for hit-testing.
+                if (distance < Math.max(star.size || STAR_RADIUS, 8)) return star;
             }
             return null;
         }
@@ -314,7 +420,7 @@
             const { x, y } = getMousePos(e);
             const clickedStar = getStarAtPosition(x, y);
 
-            if (mode === 'add' && !clickedStar) stars.push({ id: `star_${starIdCounter++}`, x, y });
+            if (mode === 'add' && !clickedStar) stars.push({ id: `star_${starIdCounter++}`, x, y, shape: currentShape, size: currentSize });
             else if (mode === 'connect') {
                 if (clickedStar) {
                     if (!selectedStarForConnection) selectedStarForConnection = clickedStar;
@@ -376,6 +482,7 @@
                 stars.forEach(star => {
                     star.x = star.x * (w / oldWidth);
                     star.y = star.y * (h / oldHeight);
+                    if (star.size) star.size = star.size * (w / oldWidth);
                 });
             }
 
@@ -401,13 +508,41 @@
                 }
             });
             stars.forEach(star => {
-                targetCtx.beginPath(); targetCtx.arc(star.x, star.y, STAR_RADIUS, 0, Math.PI * 2);
                 targetCtx.fillStyle = 'white';
-                if (selectedStarForConnection && selectedStarForConnection.id === star.id) targetCtx.fillStyle = '#60a5fa';
+                if (selectedStarForConnection && selectedStarForConnection.id === star.id) targetCtx.fillStyle = '#22d3ee';
                 targetCtx.shadowColor = 'rgba(255, 255, 255, 1)'; targetCtx.shadowBlur = 15;
-                targetCtx.fill();
+                drawStarShape(targetCtx, star);
             });
             targetCtx.shadowColor = 'transparent'; targetCtx.shadowBlur = 0;
+        }
+
+        function drawStarShape(ctx, star) {
+            const s = star.size || STAR_RADIUS;
+            const shape = star.shape || 'dot';
+            ctx.beginPath();
+            if (shape === 'dot') {
+                ctx.arc(star.x, star.y, s, 0, Math.PI * 2);
+            } else if (shape === 'diamond') {
+                ctx.moveTo(star.x, star.y - s);
+                ctx.lineTo(star.x + s, star.y);
+                ctx.lineTo(star.x, star.y + s);
+                ctx.lineTo(star.x - s, star.y);
+                ctx.closePath();
+            } else {
+                // Pointed star: 'sparkle' = 4 points, 'star' = 5 points
+                const points = shape === 'sparkle' ? 4 : 5;
+                const outer = s * 1.5;
+                const inner = s * (shape === 'sparkle' ? 0.42 : 0.5);
+                for (let i = 0; i < points * 2; i++) {
+                    const r = (i % 2 === 0) ? outer : inner;
+                    const ang = (Math.PI / points) * i - Math.PI / 2;
+                    const px = star.x + Math.cos(ang) * r;
+                    const py = star.y + Math.sin(ang) * r;
+                    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+                }
+                ctx.closePath();
+            }
+            ctx.fill();
         }
 
         function downloadCanvas(fileName, includeBackground) {
@@ -435,7 +570,9 @@
                 stars: stars.reduce((acc, star) => {
                     acc[star.id] = {
                         x_percent: (star.x / drawingCanvas.width) * 100,
-                        y_percent: (star.y / drawingCanvas.height) * 100
+                        y_percent: (star.y / drawingCanvas.height) * 100,
+                        shape: star.shape || 'dot',
+                        size: star.size || STAR_RADIUS
                     };
                     return acc;
                 }, {}),
