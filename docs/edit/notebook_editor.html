@@ -3,267 +3,383 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jupyter Notebook Editor</title>
+    <title>Notebook Studio — Edit .ipynb Files</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link id="prism-theme-light" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" />
     <link id="prism-theme-dark" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" disabled />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
-    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
     <style>
-        /* Base styles for the main page (always light) */
+        :root {
+            --accent: #2563eb;
+            --accent-hover: #1d4ed8;
+            --line: #e5e7eb;
+        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f9fafb; /* gray-50 */
-            color: #1f2937; /* gray-800 */
-        }
-
-        /* --- Content Theming Styles --- */
-        
-        /* Light Theme for Content */
-        .theme-light .notebook-cell {
-            background-color: #ffffff;
-            border-color: #e5e7eb; /* gray-200 */
-        }
-        .theme-light .cell-toolbar {
-            background-color: #f9fafb; /* gray-50 */
-            border-color: #e5e7eb;
-        }
-        .theme-light .cell-toolbar button {
-             background-color: transparent; 
-             color: #374151; /* gray-700 */
-             border: 1px solid #d1d5db; /* gray-300 */
-        }
-        .theme-light .cell-toolbar button:hover:not(:disabled) {
-            background-color: #e5e7eb; /* gray-200 */
-        }
-        .theme-light .cell-editor {
-            background-color: #f3f4f6; /* gray-100 */
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: #f8fafc;
             color: #1f2937;
-        }
-        .theme-light .code-content {
-            background-color: #f3f4f6; /* PrismJS light default */
+            margin: 0;
         }
 
-        /* Dark Theme for Content */
-        .theme-dark .notebook-cell {
-            background-color: #1f2937; /* gray-800 */
-            border-color: #374151; /* gray-700 */
-        }
-        .theme-dark .cell-toolbar {
-            background-color: #374151; /* gray-700 */
-            border-color: #4b5563; /* gray-600 */
-        }
-        .theme-dark .cell-toolbar .cell-type-label {
-             color: #d1d5db; /* gray-300 */
-        }
-        .theme-dark .cell-toolbar button {
-             background-color: transparent;
-             color: #f9fafb; /* gray-50 */
-             border: 1px solid #6b7280; /* gray-500 */
-        }
-        .theme-dark .cell-toolbar button:hover:not(:disabled) {
-            background-color: #4b5563; /* gray-600 */
-        }
-        .theme-dark .cell-editor {
-            background-color: #374151; /* gray-700 */
-            color: #d1d5db; /* gray-300 */
-        }
-        .theme-dark .code-content {
-            background-color: #2d2d2d; /* PrismJS dark default */
-        }
+        /* ---------- Top-level toolbar buttons ---------- */
+        .tbtn { display:inline-flex; align-items:center; gap:.4rem; font-weight:600; font-size:.83rem; padding:.5rem .8rem; border-radius:.6rem; cursor:pointer; border:1px solid transparent; transition:all .15s ease; white-space:nowrap; }
+        .tbtn svg { width:1rem; height:1rem; }
+        .tbtn-ghost { background:#fff; color:#374151; border-color:#e2e8f0; }
+        .tbtn-ghost:hover:not(:disabled) { background:#f8fafc; border-color:#cbd5e1; }
+        .tbtn-primary { background:var(--accent); color:#fff; }
+        .tbtn-primary:hover:not(:disabled) { background:var(--accent-hover); }
+        .tbtn:disabled { opacity:.4; cursor:not-allowed; }
+        .tbtn-icon { padding:.5rem; }
 
-        /* --- Markdown Content Styles --- */
-        .markdown-content {
-            padding: 1rem 1.5rem;
-            line-height: 1.6;
-        }
-        .markdown-content h1, .markdown-content h2, .markdown-content h3, .markdown-content h4 {
-            margin-top: 1.5em;
-            margin-bottom: 0.5em;
-            font-weight: 600;
-            line-height: 1.2;
-        }
+        /* ---------- Compact cell action buttons ---------- */
+        .cell-btn { width:26px; height:26px; display:flex; align-items:center; justify-content:center; border-radius:.4rem; color:#6b7280; cursor:pointer; flex-shrink:0; }
+        .cell-btn:hover:not(:disabled) { background:#e5e7eb; color:#111827; }
+        .cell-btn:disabled { opacity:.35; cursor:not-allowed; }
+        .cell-btn svg { width:14px; height:14px; }
+        .cell-btn.danger:hover:not(:disabled) { background:#fee2e2; color:#dc2626; }
+        .cell-btn-text { display:inline-flex; align-items:center; gap:.3rem; padding:.25rem .55rem; font-size:.72rem; font-weight:600; border-radius:.4rem; cursor:pointer; }
+        .cell-btn-text.save { background:#16a34a; color:#fff; }
+        .cell-btn-text.save:hover { background:#15803d; }
+        .cell-btn-text.cancel { background:transparent; color:#6b7280; border:1px solid #d1d5db; }
+        .cell-btn-text.cancel:hover { background:#f3f4f6; }
+
+        /* ---------- Content Theming Styles ---------- */
+        .theme-light .notebook-cell { background-color: #ffffff; border-color: #e5e7eb; }
+        .theme-light .cell-toolbar { background-color: #f9fafb; border-color: #e5e7eb; }
+        .theme-light .cell-editor { background-color: #f9fafb; color: #1f2937; }
+        .theme-light .code-content { background-color: #f3f4f6; }
+        .theme-light .md-toolbar { background-color:#f1f5f9; border-color:#e5e7eb; }
+        .theme-light .md-toolbar button { color:#475569; }
+        .theme-light .md-toolbar button:hover { background:#e2e8f0; color:#111827; }
+
+        .theme-dark .notebook-cell { background-color: #1f2937; border-color: #374151; }
+        .theme-dark .cell-toolbar { background-color: #374151; border-color: #4b5563; }
+        .theme-dark .cell-toolbar .cell-type-label { color: #d1d5db; }
+        .theme-dark .cell-btn { color:#d1d5db; }
+        .theme-dark .cell-btn:hover:not(:disabled) { background:#4b5563; color:#fff; }
+        .theme-dark .cell-btn.danger:hover:not(:disabled) { background:#7f1d1d; color:#fecaca; }
+        .theme-dark .cell-editor { background-color: #111827; color: #e5e7eb; }
+        .theme-dark .code-content { background-color: #2d2d2d; }
+        .theme-dark .md-toolbar { background-color:#111827; border-color:#374151; }
+        .theme-dark .md-toolbar button { color:#cbd5e1; }
+        .theme-dark .md-toolbar button:hover { background:#374151; color:#fff; }
+
+        /* ---------- Markdown Content Styles ---------- */
+        .markdown-content { padding: 1rem 1.5rem; line-height: 1.6; }
+        .markdown-content h1, .markdown-content h2, .markdown-content h3, .markdown-content h4 { margin-top: 1.5em; margin-bottom: 0.5em; font-weight: 600; line-height: 1.2; }
         .markdown-content h1 { font-size: 2em; }
         .markdown-content h2 { font-size: 1.5em; }
         .markdown-content h3 { font-size: 1.25em; }
         .markdown-content p { margin-bottom: 1em; }
-        .markdown-content ul, .markdown-content ol {
-            margin-bottom: 1em;
-            padding-left: 2em;
-        }
+        .markdown-content ul, .markdown-content ol { margin-bottom: 1em; padding-left: 2em; }
         .markdown-content li > p { margin-bottom: 0.5em; }
-        .markdown-content blockquote {
-            margin-left: 0;
-            padding-left: 1em;
-            border-left-width: 4px;
-            font-style: italic;
-        }
-        .markdown-content pre {
-            margin-bottom: 1em;
-            border-radius: 0.375rem; /* rounded-md */
-            overflow-x: auto;
-        }
-        .markdown-content code {
-            font-family: monospace;
-            font-size: 0.9em;
-        }
-        .markdown-content :not(pre) > code {
-            padding: 0.2em 0.4em;
-            border-radius: 0.375rem;
-        }
+        .markdown-content blockquote { margin-left: 0; padding-left: 1em; border-left-width: 4px; font-style: italic; }
+        .markdown-content pre { margin-bottom: 1em; border-radius: 0.375rem; overflow-x: auto; }
+        .markdown-content code { font-family: monospace; font-size: 0.9em; }
+        .markdown-content :not(pre) > code { padding: 0.2em 0.4em; border-radius: 0.375rem; }
+        .markdown-content.empty { color:#9ca3af; font-style:italic; }
 
-        /* Light Theme for Markdown */
-        .theme-light .markdown-content { color: #374151; } /* gray-700 */
+        .theme-light .markdown-content { color: #374151; }
         .theme-light .markdown-content h1, .theme-light .markdown-content h2, .theme-light .markdown-content h3 { border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3em; color: #111827; }
-        .theme-light .markdown-content a { color: #2563eb; text-decoration: underline; } /* blue-600 */
+        .theme-light .markdown-content a { color: #2563eb; text-decoration: underline; }
         .theme-light .markdown-content blockquote { border-color: #d1d5db; color: #6b7280; }
         .theme-light .markdown-content :not(pre) > code { background-color: #e5e7eb; color: #be123c; }
 
-        /* Dark Theme for Markdown */
-        .theme-dark .markdown-content { color: #d1d5db; } /* gray-300 */
+        .theme-dark .markdown-content { color: #d1d5db; }
         .theme-dark .markdown-content h1, .theme-dark .markdown-content h2, .theme-dark .markdown-content h3 { border-bottom: 1px solid #4b5563; padding-bottom: 0.3em; color: #f9fafb; }
-        .theme-dark .markdown-content a { color: #60a5fa; text-decoration: underline; } /* blue-400 */
+        .theme-dark .markdown-content a { color: #60a5fa; text-decoration: underline; }
         .theme-dark .markdown-content blockquote { border-color: #6b7280; color: #9ca3af; }
-        .theme-dark .markdown-content :not(pre) > code { background-color: #4b5563; color: #f472b6; } /* gray-600, pink-400 */
+        .theme-dark .markdown-content :not(pre) > code { background-color: #4b5563; color: #f472b6; }
 
+        /* ---------- App-wide dark mode (chrome: header, toolbar, inputs, banners, modals) ---------- */
+        body.theme-dark { background-color: #0f172a; color: #e5e7eb; }
+        body.theme-dark h1 { color: #f8fafc; }
+        body.theme-dark header p { color: #94a3b8; }
 
-        /* General layout styles */
+        body.theme-dark #toolbar-card { background-color: #1e293b; border-color: #334155; }
+        body.theme-dark #secondary-bar { border-color: #334155; }
+        body.theme-dark .tbtn-ghost { background: #1e293b; color: #e2e8f0; border-color: #334155; }
+        body.theme-dark .tbtn-ghost:hover:not(:disabled) { background: #334155; border-color: #475569; }
+        body.theme-dark .tbtn-ghost.cursor-pointer { background: #1e293b; }
+        body.theme-dark .w-px.bg-gray-200 { background-color: #334155; }
+        body.theme-dark .text-gray-200 { color: #334155; }
+
+        body.theme-dark #search-input, body.theme-dark #filename-input, body.theme-dark #url-input, body.theme-dark #paste-textarea {
+            background-color: #1e293b; border-color: #334155; color: #e5e7eb;
+        }
+        body.theme-dark #search-input::placeholder, body.theme-dark #url-input::placeholder, body.theme-dark #paste-textarea::placeholder { color: #64748b; }
+        body.theme-dark #search-input svg { color: #64748b; }
+        body.theme-dark #search-count, body.theme-dark #stats-text { color: #94a3b8; }
+        body.theme-dark #filename-container svg { color: #64748b; }
+
+        body.theme-dark #error-message { background-color: rgba(127,29,29,.35); border-color: #7f1d1d; color: #fca5a5; }
+        body.theme-dark #autosave-banner { background-color: rgba(30,58,138,.3); border-color: #1e40af; color: #bfdbfe; }
+
+        body.theme-dark .modal-card { background-color: #1e293b; color: #e5e7eb; }
+        body.theme-dark .modal-card h2, body.theme-dark .modal-card h3 { color: #f8fafc; }
+        body.theme-dark .modal-card p, body.theme-dark .modal-card .text-gray-500, body.theme-dark .modal-card .text-gray-600 { color: #94a3b8; }
+        body.theme-dark .shortcut-key { background: #0f172a; border-color: #334155; color: #cbd5e1; }
+
+        body.theme-dark #placeholder-text { color: #64748b; }
+        body.theme-dark .empty-notebook-box { background-color: #1e293b; border-color: #334155; color: #64748b; }
+        body.theme-dark .add-cell-bar hr { border-top-color: #334155; }
+        body.theme-dark .add-cell-bar .buttons { background-color: #0f172a; }
+        body.theme-dark .add-cell-bar .buttons button { background: #1e3a5f; border-color: #1e40af; color: #93c5fd; }
+        body.theme-dark .add-cell-bar .buttons button:hover { background: #1e40af; }
+        body.theme-dark #content-drop-hint .box { background: #1e293b; border-color: #334155; color: #e5e7eb; }
+        body.theme-dark #content-drop-hint .box p { color: #e5e7eb; }
+
+        /* ---------- Layout ---------- */
         .notebook-cell {
-            border: 1px solid;
-            border-radius: 0.5rem;
-            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-            overflow: hidden;
-            position: relative;
-            transition: background-color 0.3s, border-color 0.3s;
+            border: 1px solid; border-left-width: 4px; border-radius: 0.6rem;
+            box-shadow: 0 1px 3px 0 rgba(0,0,0,.08), 0 1px 2px 0 rgba(0,0,0,.04);
+            overflow: hidden; position: relative; transition: background-color .2s, border-color .2s, box-shadow .15s;
         }
-        .cell-content { 
-            min-height: 50px; 
-            transition: all 0.3s ease-in-out;
-        }
-        .cell-content.collapsed {
-            display: none;
-        }
-        .cell-editor { width: 100%; height: 200px; font-family: monospace; font-size: 14px; border: none; padding: 1rem; resize: vertical; }
-        .cell-toolbar { 
-            padding: 0 0.5rem; 
-            display: flex; 
-            align-items: center; 
-            gap: 0.25rem; 
-            border-bottom: 1px solid; 
-            cursor: grab; 
-        }
-        .cell-toolbar button { padding: 0 0.4rem; font-size: 0.75rem; border-radius: 0.25rem; display: flex; align-items: center; }
-        .cell-toolbar button:disabled { cursor: not-allowed; opacity: 0.4; }
-        .add-cell-bar { text-align: center; margin: 0.5rem 0; position: relative; }
-        .add-cell-bar hr { border-top: 1px dashed #ccc; }
-        .add-cell-bar .buttons { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 0 10px; display: flex; gap: 1rem; background-color: #f9fafb;}
+        .notebook-cell.type-code { border-left-color:#94a3b8; }
+        .notebook-cell.type-markdown { border-left-color:#60a5fa; }
+        .notebook-cell:hover { box-shadow: 0 4px 14px rgba(15,23,42,.1); }
+        .cell-content { min-height: 44px; }
+        .cell-content.collapsed { display: none; }
+        .cell-editor { width: 100%; height: 220px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13.5px; border: none; padding: 1rem; resize: vertical; outline:none; line-height:1.5; }
+        .cell-toolbar { padding: .35rem .5rem; display: flex; align-items: center; gap: .2rem; border-bottom: 1px solid; cursor: grab; user-select:none; }
+        .cell-toolbar:active { cursor: grabbing; }
+        .cell-type-label { font-size:.72rem; font-weight:600; text-transform:uppercase; letter-spacing:.03em; color:#6b7280; display:flex; align-items:center; gap:.4rem; }
+        .type-dot { width:7px; height:7px; border-radius:50%; }
+        .type-code .type-dot, .cell-toolbar .type-dot.code { background:#94a3b8; }
+        .cell-toolbar .type-dot.markdown { background:#60a5fa; }
 
-        /* Drag and Drop Styles */
-        .cell-container.dragging {
-            opacity: 0.5;
-        }
-        .drop-placeholder {
-            height: 50px;
-            background-color: #c7d2fe; /* indigo-200 */
-            border: 2px dashed #6366f1; /* indigo-500 */
-            margin: 0.5rem 0;
-            border-radius: 0.5rem;
-        }
+        .md-toolbar { display:flex; gap:.15rem; padding:.35rem .5rem; border-bottom:1px solid; }
+        .md-toolbar button { width:26px; height:26px; display:flex; align-items:center; justify-content:center; border-radius:.4rem; font-size:.78rem; font-weight:700; cursor:pointer; }
+        .md-toolbar button svg { width:14px; height:14px; }
 
-        /* Raw View Styles */
-        #raw-view-container {
-            width: 40%;
-            height: 100vh;
-            position: sticky;
-            top: 0;
+        .add-cell-bar { text-align: center; margin: .4rem 0; position: relative; height:1.25rem; }
+        .add-cell-bar hr { border-top: 1px dashed #d1d5db; margin-top: .6rem; }
+        .add-cell-bar .buttons { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 0 10px; display: flex; gap: .5rem; background-color: #f8fafc; opacity:0; transition:opacity .15s; }
+        .add-cell-bar:hover .buttons, .add-cell-bar:focus-within .buttons { opacity:1; }
+        .add-cell-bar .buttons button { display:inline-flex; align-items:center; gap:.3rem; font-size:.72rem; font-weight:700; color:#2563eb; background:#eff6ff; border:1px solid #dbeafe; padding:.25rem .6rem; border-radius:999px; }
+        .add-cell-bar .buttons button:hover { background:#dbeafe; }
+
+        .cell-container.dragging { opacity: .4; }
+        .drop-placeholder { height: 46px; background-color: #dbeafe; border: 2px dashed #60a5fa; margin: .5rem 0; border-radius: .6rem; }
+
+        #raw-view-container { width: 42%; height: 100vh; position: sticky; top: 0; }
+        #raw-view-container pre { margin:0; }
+
+        .toast { position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(20px); opacity:0; background:#0f172a; color:#fff; padding:.7rem 1.1rem; border-radius:.7rem; font-size:.85rem; box-shadow:0 8px 24px rgba(0,0,0,.25); transition:all .25s; pointer-events:none; z-index:1200; }
+        .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+        .toast.err { background:#be123c; }
+
+        .dirty-dot { width:7px; height:7px; border-radius:50%; background:#f59e0b; display:inline-block; }
+
+        #content-drop-hint {
+            position:absolute; inset:0; z-index:20; display:none; align-items:center; justify-content:center;
+            background:rgba(37,99,235,.06); border:3px dashed #93c5fd; border-radius:1rem; pointer-events:none;
         }
+        #content-drop-hint.active { display:flex; }
+        #content-drop-hint .box { border:1px solid #dbeafe; background:#fff; border-radius:.85rem; padding:1.5rem 2rem; text-align:center; box-shadow:0 14px 34px rgba(37,99,235,.16); }
+
+        .shortcut-key { font-family: ui-monospace, monospace; font-size:.72rem; background:#f1f5f9; border:1px solid #e2e8f0; border-bottom-width:2px; padding:.1rem .4rem; border-radius:.35rem; color:#334155; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
 
 <div class="flex">
     <div id="main-editor-panel" class="w-full transition-all duration-300">
-        <div class="container mx-auto max-w-4xl px-4 py-8">
-            <header class="text-center mb-8 relative">
-                <h1 class="text-4xl font-bold text-gray-900">Jupyter Notebook Editor</h1>
-                <p class="text-lg text-gray-600 mt-2">Upload, view, edit, or create a new notebook from scratch.</p>
-                <button id="theme-toggle" class="absolute top-0 right-0 p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" title="Toggle content theme">
-                    <svg id="theme-icon-light" class="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
-                    <svg id="theme-icon-dark" class="h-6 w-6 text-gray-700 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
-                </button>
+        <div class="container mx-auto max-w-5xl px-4 py-8">
+            <header class="flex items-center justify-between gap-3 mb-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shrink-0 shadow-sm shadow-blue-200">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    </div>
+                    <div>
+                        <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight text-gray-900">Notebook Studio</h1>
+                        <p class="text-xs sm:text-sm text-gray-500 -mt-0.5">Upload, view, edit, or build a Jupyter notebook — all in your browser.</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1.5 shrink-0">
+                    <button id="shortcuts-btn" class="tbtn tbtn-ghost tbtn-icon" title="Keyboard shortcuts">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-2.5 2-2.5 3.5"/><path d="M12 17h.01"/></svg>
+                    </button>
+                    <button id="theme-toggle" class="tbtn tbtn-ghost tbtn-icon" title="Toggle dark mode">
+                        <svg id="theme-icon-light" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                        <svg id="theme-icon-dark" class="w-4 h-4 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+                    </button>
+                </div>
             </header>
 
-            <div id="error-message" class="text-red-600 bg-red-100 border border-red-400 text-sm rounded-md p-4 mb-6 text-center hidden"></div>
+            <div id="autosave-banner" class="hidden items-center justify-between gap-3 bg-blue-50 border border-blue-200 text-blue-800 text-sm rounded-xl p-3 mb-4">
+                <div class="flex items-center gap-2">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 shrink-0"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
+                    <span>We found a notebook you were working on. Restore it?</span>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <button id="autosave-discard" class="tbtn tbtn-ghost">Discard</button>
+                    <button id="autosave-restore" class="tbtn tbtn-primary">Restore</button>
+                </div>
+            </div>
 
-            <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200 mb-8">
-                <div class="flex flex-col sm:flex-row items-center justify-between sm:space-x-4 space-y-4 sm:space-y-0">
-                    <div class="flex items-center space-x-2">
-                        <button id="new-btn" title="Create a new blank notebook" class="px-4 py-2 text-sm font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full whitespace-nowrap">New</button>
-                        <label for="notebook-upload" title="Upload an existing .ipynb file" class="px-4 py-2 text-sm font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full whitespace-nowrap cursor-pointer">Upload</label>
-                        <input type="file" id="notebook-upload" accept=".ipynb" class="hidden"/>
-                        <button id="paste-btn" title="Paste raw .ipynb JSON data" class="px-4 py-2 text-sm font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full whitespace-nowrap">Paste</button>
-                        <button id="url-btn" title="Load notebook from URL" class="px-4 py-2 text-sm font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full whitespace-nowrap">URL</button>
+            <div id="error-message" class="text-red-700 bg-red-50 border border-red-200 text-sm rounded-xl p-4 mb-6 hidden flex items-start gap-2">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 mt-0.5 shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+                <span id="error-message-text"></span>
+            </div>
+
+            <div id="toolbar-card" class="bg-white p-3 rounded-xl shadow-sm border border-gray-200 mb-3">
+                <div class="flex flex-wrap items-center gap-2">
+                    <button id="new-btn" title="Create a new blank notebook" class="tbtn tbtn-ghost">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M12 11v6M9 14h6"/></svg>
+                        New
+                    </button>
+                    <label for="notebook-upload" title="Upload an existing .ipynb file" class="tbtn tbtn-ghost cursor-pointer">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5M12 3v12"/></svg>
+                        Upload
+                    </label>
+                    <input type="file" id="notebook-upload" accept=".ipynb" class="hidden"/>
+                    <button id="paste-btn" title="Paste raw .ipynb JSON data" class="tbtn tbtn-ghost">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                        Paste
+                    </button>
+                    <button id="url-btn" title="Load notebook from URL" class="tbtn tbtn-ghost">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>
+                        URL
+                    </button>
+
+                    <span class="w-px h-6 bg-gray-200 mx-1"></span>
+
+                    <button id="undo-btn" class="tbtn tbtn-ghost tbtn-icon" title="Undo (Ctrl/⌘+Z)" disabled>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-1"/></svg>
+                    </button>
+                    <button id="redo-btn" class="tbtn tbtn-ghost tbtn-icon" title="Redo (Ctrl/⌘+Shift+Z)" disabled>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 14l5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h1"/></svg>
+                    </button>
+
+                    <div class="flex-1"></div>
+
+                    <button id="view-raw-btn" title="View raw JSON" disabled class="tbtn tbtn-ghost">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg>
+                        <span id="raw-btn-label">Raw</span>
+                    </button>
+                    <button id="download-btn" title="Download the current notebook (Ctrl/⌘+S)" disabled class="tbtn tbtn-primary">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>
+                        Download
+                    </button>
+                </div>
+
+                <div id="secondary-bar" class="hidden flex-wrap items-center gap-3 mt-3 pt-3 border-t border-gray-100">
+                    <div class="relative flex-1 min-w-[180px]">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                        <input id="search-input" type="search" placeholder="Search cells…" class="w-full text-sm pl-8 pr-3 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400">
                     </div>
-                     <div class="flex items-center space-x-2">
-                        <button id="view-raw-btn" title="View raw JSON" disabled class="px-4 py-2 text-sm font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full whitespace-nowrap opacity-50 cursor-not-allowed">Raw</button>
-                        <button id="download-btn" title="Download the current notebook" disabled class="px-4 py-2 text-sm font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full whitespace-nowrap opacity-50 cursor-not-allowed">Download</button>
+                    <span id="search-count" class="text-xs text-gray-400 whitespace-nowrap"></span>
+                    <span class="text-gray-200">|</span>
+                    <span id="stats-text" class="text-xs text-gray-500 whitespace-nowrap"></span>
+                </div>
+            </div>
+
+            <div id="filename-container" class="mb-6 hidden flex items-center gap-2">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5 text-gray-400 shrink-0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+                <input type="text" id="filename-input" class="w-full text-2xl font-bold text-gray-800 bg-transparent focus:outline-none border-b-2 border-transparent focus:border-blue-400 rounded-none px-1 py-1 transition-colors" />
+                <span id="dirty-indicator" class="dirty-dot hidden shrink-0" title="Unsaved changes"></span>
+            </div>
+
+            <div id="content-wrapper" class="relative">
+                <main id="notebook-content">
+                    <div id="placeholder-text" class="text-center text-gray-400 py-24">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                        <p class="mt-4 text-lg">Start or upload an IPython notebook to get started.</p>
+                        <p class="mt-1 text-sm text-gray-400">Tip: you can also drag &amp; drop a .ipynb file into this area.</p>
+                    </div>
+                </main>
+                <div id="content-drop-hint">
+                    <div class="box">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.6" class="w-9 h-9 mx-auto mb-2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5M12 3v12"/></svg>
+                        <p class="font-semibold text-gray-800 text-sm">Drop your .ipynb file to load it</p>
                     </div>
                 </div>
             </div>
-            
-            <div id="filename-container" class="mb-6 hidden">
-                 <input type="text" id="filename-input" class="w-full text-2xl font-bold text-gray-800 bg-transparent focus:outline-none border-b-2 border-transparent focus:border-indigo-400 rounded-none px-1 py-1 transition-colors" />
-            </div>
-
-            <main id="notebook-content">
-                <div id="placeholder-text" class="text-center text-gray-400 py-24">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                    <p class="mt-4 text-lg">Start or upload an IPython notebook to get started.</p>
-                </div>
-            </main>
         </div>
     </div>
 
-    <div id="raw-view-container" class="hidden bg-gray-800 text-gray-200 p-4 border-l border-gray-700">
-        <pre class="h-full overflow-auto text-sm"><code id="raw-view-code" class="language-json"></code></pre>
+    <div id="raw-view-container" class="hidden bg-gray-900 text-gray-200 border-l border-gray-800 flex flex-col">
+        <div class="flex items-center justify-between px-4 py-2.5 border-b border-gray-800 shrink-0">
+            <span class="text-xs font-semibold uppercase tracking-wide text-gray-400">Raw JSON</span>
+            <button id="raw-close-btn" class="text-gray-400 hover:text-white p-1" title="Close raw view">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <pre class="flex-1 overflow-auto text-sm p-4 m-0"><code id="raw-view-code" class="language-json"></code></pre>
     </div>
 </div>
 
 <!-- Paste Modal -->
-<div id="paste-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center hidden z-50">
-    <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl">
-        <h2 class="text-xl font-bold mb-4">Paste Notebook JSON</h2>
-        <p class="text-gray-600 mb-4">Paste the entire raw JSON content of an <code>.ipynb</code> file below.</p>
-        <textarea id="paste-textarea" class="w-full h-64 p-2 border border-gray-300 rounded-md font-mono text-sm" placeholder='{ "cells": [...], "metadata": {...}, ... }'></textarea>
+<div id="paste-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
+    <div class="modal-card bg-white p-6 rounded-2xl shadow-xl w-full max-w-2xl">
+        <h2 class="text-lg font-bold mb-2">Paste Notebook JSON</h2>
+        <p class="text-gray-500 text-sm mb-4">Paste the entire raw JSON content of an <code>.ipynb</code> file below.</p>
+        <textarea id="paste-textarea" class="w-full h-64 p-3 border border-gray-200 rounded-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400" placeholder='{ "cells": [...], "metadata": {...}, ... }'></textarea>
         <div class="mt-4 flex justify-end space-x-2">
-            <button id="paste-cancel-btn" class="px-4 py-2 text-sm font-semibold bg-gray-200 text-gray-800 hover:bg-gray-300 rounded-md">Cancel</button>
-            <button id="paste-submit-btn" class="px-4 py-2 text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 rounded-md">Load Notebook</button>
+            <button id="paste-cancel-btn" class="tbtn tbtn-ghost">Cancel</button>
+            <button id="paste-submit-btn" class="tbtn tbtn-primary">Load Notebook</button>
         </div>
     </div>
 </div>
 
 <!-- URL Modal -->
-<div id="url-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center hidden z-50">
-    <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl">
-        <h2 class="text-xl font-bold mb-4">Load Notebook from URL</h2>
-        <p class="text-gray-600 mb-4">Enter the URL of a raw <code>.ipynb</code> file. Note: The URL must be CORS-enabled (e.g., a raw GitHub Gist URL).</p>
-        <input type="url" id="url-input" class="w-full p-2 border border-gray-300 rounded-md" placeholder="https://.../notebook.ipynb">
+<div id="url-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
+    <div class="modal-card bg-white p-6 rounded-2xl shadow-xl w-full max-w-2xl">
+        <h2 class="text-lg font-bold mb-2">Load Notebook from URL</h2>
+        <p class="text-gray-500 text-sm mb-4">Enter the URL of a raw <code>.ipynb</code> file. The URL must be CORS-enabled (e.g., a raw GitHub Gist URL).</p>
+        <input type="url" id="url-input" class="w-full p-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400" placeholder="https://.../notebook.ipynb">
         <div class="mt-4 flex justify-end space-x-2">
-            <button id="url-cancel-btn" class="px-4 py-2 text-sm font-semibold bg-gray-200 text-gray-800 hover:bg-gray-300 rounded-md">Cancel</button>
-            <button id="url-submit-btn" class="px-4 py-2 text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 rounded-md">Load Notebook</button>
+            <button id="url-cancel-btn" class="tbtn tbtn-ghost">Cancel</button>
+            <button id="url-submit-btn" class="tbtn tbtn-primary">Load Notebook</button>
         </div>
     </div>
 </div>
 
+<!-- Confirm Modal -->
+<div id="confirm-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
+    <div class="modal-card bg-white p-6 rounded-2xl shadow-xl w-full max-w-sm">
+        <h2 id="confirm-title" class="text-lg font-bold mb-2">Are you sure?</h2>
+        <p id="confirm-msg" class="text-gray-500 text-sm mb-5"></p>
+        <div class="flex justify-end space-x-2">
+            <button id="confirm-cancel-btn" class="tbtn tbtn-ghost">Cancel</button>
+            <button id="confirm-ok-btn" class="tbtn tbtn-primary">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<!-- Shortcuts Modal -->
+<div id="shortcuts-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
+    <div class="modal-card bg-white p-6 rounded-2xl shadow-xl w-full max-w-md">
+        <h2 class="text-lg font-bold mb-4">Keyboard shortcuts</h2>
+        <div class="space-y-2.5 text-sm">
+            <div class="flex justify-between items-center"><span class="text-gray-600">Save cell &amp; exit editor</span><span class="shortcut-key">Ctrl / ⌘ + Enter</span></div>
+            <div class="flex justify-between items-center"><span class="text-gray-600">Cancel editing / close dialog</span><span class="shortcut-key">Esc</span></div>
+            <div class="flex justify-between items-center"><span class="text-gray-600">Undo / Redo</span><span class="shortcut-key">Ctrl / ⌘ + Z / Shift+Z</span></div>
+            <div class="flex justify-between items-center"><span class="text-gray-600">Download notebook</span><span class="shortcut-key">Ctrl / ⌘ + S</span></div>
+            <div class="flex justify-between items-center"><span class="text-gray-600">Indent in code editor</span><span class="shortcut-key">Tab</span></div>
+        </div>
+        <div class="mt-5 flex justify-end">
+            <button id="shortcuts-close-btn" class="tbtn tbtn-primary">Got it</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast" class="toast"></div>
 
 <script>
-    // DOM Elements
+    // ---------- DOM Elements ----------
     const mainEditorPanel = document.getElementById('main-editor-panel');
     const fileInput = document.getElementById('notebook-upload');
     const contentArea = document.getElementById('notebook-content');
     const errorMessage = document.getElementById('error-message');
+    const errorMessageText = document.getElementById('error-message-text');
     const downloadBtn = document.getElementById('download-btn');
     const newBtn = document.getElementById('new-btn');
     const pasteBtn = document.getElementById('paste-btn');
@@ -275,10 +391,28 @@
     const prismThemeDark = document.getElementById('prism-theme-dark');
     const filenameContainer = document.getElementById('filename-container');
     const filenameInput = document.getElementById('filename-input');
+    const dirtyIndicator = document.getElementById('dirty-indicator');
     const rawViewContainer = document.getElementById('raw-view-container');
     const rawViewCode = document.getElementById('raw-view-code');
     const viewRawBtn = document.getElementById('view-raw-btn');
-    
+    const rawBtnLabel = document.getElementById('raw-btn-label');
+    const rawCloseBtn = document.getElementById('raw-close-btn');
+    const undoBtn = document.getElementById('undo-btn');
+    const redoBtn = document.getElementById('redo-btn');
+    const secondaryBar = document.getElementById('secondary-bar');
+    const searchInput = document.getElementById('search-input');
+    const searchCount = document.getElementById('search-count');
+    const statsText = document.getElementById('stats-text');
+    const shortcutsBtn = document.getElementById('shortcuts-btn');
+    const shortcutsModal = document.getElementById('shortcuts-modal');
+    const shortcutsCloseBtn = document.getElementById('shortcuts-close-btn');
+    const contentWrapper = document.getElementById('content-wrapper');
+    const contentDropHint = document.getElementById('content-drop-hint');
+    const autosaveBanner = document.getElementById('autosave-banner');
+    const autosaveRestore = document.getElementById('autosave-restore');
+    const autosaveDiscard = document.getElementById('autosave-discard');
+    const toastEl = document.getElementById('toast');
+
     // Paste Modal Elements
     const pasteModal = document.getElementById('paste-modal');
     const pasteTextarea = document.getElementById('paste-textarea');
@@ -291,43 +425,128 @@
     const urlCancelBtn = document.getElementById('url-cancel-btn');
     const urlSubmitBtn = document.getElementById('url-submit-btn');
 
-    // State
+    // Confirm Modal Elements
+    const confirmModal = document.getElementById('confirm-modal');
+    const confirmTitle = document.getElementById('confirm-title');
+    const confirmMsg = document.getElementById('confirm-msg');
+    const confirmCancelBtn = document.getElementById('confirm-cancel-btn');
+    const confirmOkBtn = document.getElementById('confirm-ok-btn');
+
+    // ---------- State ----------
     let notebook = null;
-    
-    // --- THEME LOGIC ---
-    function applyTheme(theme) {
-        if (theme === 'dark') {
-            contentArea.classList.remove('theme-light');
-            contentArea.classList.add('theme-dark');
-            themeIconLight.classList.add('hidden');
-            themeIconDark.classList.remove('hidden');
-            prismThemeLight.disabled = true;
-            prismThemeDark.disabled = false;
-        } else { // light
-            contentArea.classList.remove('theme-dark');
-            contentArea.classList.add('theme-light');
-            themeIconLight.classList.remove('hidden');
-            themeIconDark.classList.add('hidden');
-            prismThemeLight.disabled = false;
-            prismThemeDark.disabled = true;
+    let isDirty = false;
+    let undoStack = [], redoStack = [];
+    let editingIndex = null;
+    let confirmCb = null;
+    const AUTOSAVE_KEY = 'notebook-studio-autosave';
+    let autosaveTimer, toastTimer;
+
+    const PLACEHOLDER_HTML = `<div id="placeholder-text" class="text-center text-gray-400 py-24"><svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg><p class="mt-4 text-lg">Start or upload an IPython notebook to get started.</p><p class="mt-1 text-sm text-gray-400">Tip: you can also drag &amp; drop a .ipynb file into this area.</p></div>`;
+
+    // ---------- Toast ----------
+    function toast(msg, isErr) {
+        toastEl.textContent = msg;
+        toastEl.classList.toggle('err', !!isErr);
+        toastEl.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2400);
+    }
+    function showError(msg) { errorMessageText.textContent = msg; errorMessage.classList.remove('hidden'); }
+    function clearError() { errorMessageText.textContent = ''; errorMessage.classList.add('hidden'); }
+
+    // ---------- Dirty / autosave ----------
+    function setDirty(val) {
+        isDirty = val;
+        dirtyIndicator.classList.toggle('hidden', !val);
+        if (val) scheduleAutosave();
+    }
+    function scheduleAutosave() {
+        clearTimeout(autosaveTimer);
+        autosaveTimer = setTimeout(() => {
+            if (!notebook) return;
+            try {
+                localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ fileName: filenameInput.value || 'Untitled', notebook }));
+            } catch (e) { /* storage full or unavailable — ignore */ }
+        }, 600);
+    }
+    window.addEventListener('beforeunload', (e) => {
+        if (isDirty) { e.preventDefault(); e.returnValue = ''; }
+    });
+
+    function checkAutosaveOnLoad() {
+        try {
+            const raw = localStorage.getItem(AUTOSAVE_KEY);
+            if (!raw) return;
+            const data = JSON.parse(raw);
+            if (data && data.notebook && Array.isArray(data.notebook.cells)) {
+                autosaveBanner.classList.remove('hidden');
+                autosaveBanner.classList.add('flex');
+                autosaveBanner.dataset.payload = raw;
+            }
+        } catch (e) { /* ignore malformed autosave */ }
+    }
+    autosaveRestore.addEventListener('click', () => {
+        try {
+            const data = JSON.parse(autosaveBanner.dataset.payload);
+            loadAndRenderNotebook(data.notebook, data.fileName || 'Restored Notebook');
+            setDirty(true);
+            toast('Notebook restored');
+        } catch (e) { toast('Could not restore autosave.', true); }
+        autosaveBanner.classList.add('hidden');
+        autosaveBanner.classList.remove('flex');
+    });
+    autosaveDiscard.addEventListener('click', () => {
+        localStorage.removeItem(AUTOSAVE_KEY);
+        autosaveBanner.classList.add('hidden');
+        autosaveBanner.classList.remove('flex');
+    });
+
+    // ---------- Confirm modal ----------
+    function askConfirm(title, msg, confirmLabel, onOk) {
+        confirmTitle.textContent = title;
+        confirmMsg.textContent = msg;
+        confirmOkBtn.textContent = confirmLabel;
+        confirmCb = onOk;
+        confirmModal.classList.remove('hidden');
+    }
+    function closeConfirm() { confirmModal.classList.add('hidden'); confirmCb = null; }
+    confirmCancelBtn.addEventListener('click', closeConfirm);
+    confirmOkBtn.addEventListener('click', () => { const cb = confirmCb; closeConfirm(); if (cb) cb(); });
+
+    function guardDiscard(proceedFn) {
+        if (notebook && isDirty) {
+            askConfirm('Discard unsaved changes?', 'Loading a new notebook will replace the one you are currently editing.', 'Discard & continue', proceedFn);
+        } else {
+            proceedFn();
         }
     }
 
-    function toggleTheme() {
-        const currentTheme = localStorage.getItem('content-theme') || 'dark';
-        const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-        localStorage.setItem('content-theme', newTheme);
-        applyTheme(newTheme);
+    // ---------- THEME LOGIC (applies to the whole app, not just cell content) ----------
+    function applyTheme(theme) {
+        if (theme === 'dark') {
+            document.body.classList.remove('theme-light'); document.body.classList.add('theme-dark');
+            themeIconLight.classList.add('hidden'); themeIconDark.classList.remove('hidden');
+            prismThemeLight.disabled = true; prismThemeDark.disabled = false;
+        } else {
+            document.body.classList.remove('theme-dark'); document.body.classList.add('theme-light');
+            themeIconLight.classList.remove('hidden'); themeIconDark.classList.add('hidden');
+            prismThemeLight.disabled = false; prismThemeDark.disabled = true;
+        }
     }
+    function toggleTheme() {
+        const currentTheme = localStorage.getItem('app-theme') || 'dark';
+        const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+        localStorage.setItem('app-theme', newTheme);
+        applyTheme(newTheme);
+        toast(newTheme === 'dark' ? 'Dark mode on' : 'Light mode on');
+    }
+    applyTheme(localStorage.getItem('app-theme') || 'dark');
 
-    const savedTheme = localStorage.getItem('content-theme') || 'dark';
-    applyTheme(savedTheme);
-
-    // Event Listeners
+    // ---------- Event Listeners ----------
     themeToggle.addEventListener('click', toggleTheme);
     fileInput.addEventListener('change', handleFileUpload);
     downloadBtn.addEventListener('click', handleFileDownload);
-    newBtn.addEventListener('click', createNewNotebook);
+    newBtn.addEventListener('click', () => guardDiscard(createNewNotebook));
     pasteBtn.addEventListener('click', openPasteModal);
     pasteCancelBtn.addEventListener('click', closePasteModal);
     pasteSubmitBtn.addEventListener('click', handlePasteSubmit);
@@ -335,11 +554,51 @@
     urlCancelBtn.addEventListener('click', closeUrlModal);
     urlSubmitBtn.addEventListener('click', handleUrlSubmit);
     contentArea.addEventListener('click', handleCellActions);
+    contentArea.addEventListener('keydown', handleCellEditorKeydown);
     viewRawBtn.addEventListener('click', toggleRawView);
+    rawCloseBtn.addEventListener('click', () => { if (!rawViewContainer.classList.contains('hidden')) toggleRawView(); });
+    undoBtn.addEventListener('click', undo);
+    redoBtn.addEventListener('click', redo);
+    shortcutsBtn.addEventListener('click', () => shortcutsModal.classList.remove('hidden'));
+    shortcutsCloseBtn.addEventListener('click', () => shortcutsModal.classList.add('hidden'));
+    searchInput.addEventListener('input', applySearch);
+    filenameInput.addEventListener('input', () => setDirty(true));
 
+    // ---------- Undo / redo ----------
+    function record() {
+        if (!notebook) return;
+        undoStack.push(JSON.parse(JSON.stringify(notebook)));
+        if (undoStack.length > 60) undoStack.shift();
+        redoStack = [];
+        updateHistoryButtons();
+    }
+    function updateHistoryButtons() {
+        undoBtn.disabled = undoStack.length === 0;
+        redoBtn.disabled = redoStack.length === 0;
+    }
+    function undo() {
+        if (!undoStack.length) return;
+        redoStack.push(JSON.parse(JSON.stringify(notebook)));
+        notebook = undoStack.pop();
+        editingIndex = null;
+        setDirty(true);
+        renderNotebook();
+        updateHistoryButtons();
+    }
+    function redo() {
+        if (!redoStack.length) return;
+        undoStack.push(JSON.parse(JSON.stringify(notebook)));
+        notebook = redoStack.pop();
+        editingIndex = null;
+        setDirty(true);
+        renderNotebook();
+        updateHistoryButtons();
+    }
+
+    // ---------- Notebook creation / loading ----------
     function createNewNotebook() {
         notebook = {
-            cells: [{ cell_type: "code", execution_count: null, metadata: {}, outputs: [], source: ["# Your first code cell!\n"] }],
+            cells: [],
             metadata: { kernelspec: { display_name: "Python 3", language: "python", name: "python3" }, language_info: { name: "python" } },
             nbformat: 4, nbformat_minor: 2
         };
@@ -349,16 +608,16 @@
     function handleFileUpload(event) {
         const file = event.target.files[0];
         if (!file) return;
+        guardDiscard(() => loadFileObject(file));
+    }
 
+    function loadFileObject(file) {
         resetState();
-
         if (!file.name.endsWith('.ipynb')) {
-            errorMessage.textContent = 'Error: Please upload a valid .ipynb file.';
-            errorMessage.classList.remove('hidden');
-            fileInput.value = ''; // Reset file input
+            showError('Please upload a valid .ipynb file.');
+            fileInput.value = '';
             return;
         }
-
         const reader = new FileReader();
         reader.onload = (e) => {
             let parsedNotebook;
@@ -366,90 +625,75 @@
                 parsedNotebook = JSON.parse(e.target.result);
             } catch (error) {
                 console.error("Parsing error:", error);
-                errorMessage.textContent = 'Error: Could not parse the notebook file.';
-                errorMessage.classList.remove('hidden');
+                showError('Could not parse the notebook file.');
                 return;
             }
             loadAndRenderNotebook(parsedNotebook, file.name);
         };
-        reader.onerror = () => { 
-            errorMessage.textContent = 'Error: Could not read the file.'; 
-            errorMessage.classList.remove('hidden');
-        };
+        reader.onerror = () => showError('Could not read the file.');
         reader.readAsText(file);
     }
-    
+
     function openPasteModal() {
         pasteTextarea.value = '';
-        errorMessage.textContent = '';
-        errorMessage.classList.add('hidden');
+        clearError();
         pasteModal.classList.remove('hidden');
         pasteTextarea.focus();
     }
+    function closePasteModal() { pasteModal.classList.add('hidden'); }
 
-    function closePasteModal() {
-        pasteModal.classList.add('hidden');
-    }
-    
     function openUrlModal() {
         urlInput.value = '';
-        errorMessage.textContent = '';
-        errorMessage.classList.add('hidden');
+        clearError();
         urlModal.classList.remove('hidden');
         urlInput.focus();
     }
-
-    function closeUrlModal() {
-        urlModal.classList.add('hidden');
-    }
+    function closeUrlModal() { urlModal.classList.add('hidden'); }
 
     function handlePasteSubmit() {
         const rawJson = pasteTextarea.value;
         closePasteModal();
         if (!rawJson.trim()) return;
-
-        resetState();
-        let parsedNotebook;
-        try {
-            parsedNotebook = JSON.parse(rawJson);
-        } catch (error) {
-            console.error("Paste parsing error:", error);
-            errorMessage.textContent = 'Error: Pasted text is not valid JSON.';
-            errorMessage.classList.remove('hidden');
-            return;
-        }
-        loadAndRenderNotebook(parsedNotebook, "Pasted Notebook");
+        guardDiscard(() => {
+            resetState();
+            let parsedNotebook;
+            try {
+                parsedNotebook = JSON.parse(rawJson);
+            } catch (error) {
+                console.error("Paste parsing error:", error);
+                showError('Pasted text is not valid JSON.');
+                return;
+            }
+            loadAndRenderNotebook(parsedNotebook, "Pasted Notebook");
+        });
     }
 
-    async function handleUrlSubmit() {
+    function handleUrlSubmit() {
         const url = urlInput.value;
         closeUrlModal();
         if (!url.trim()) return;
-
-        resetState();
-        try {
-            const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+        guardDiscard(async () => {
+            resetState();
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const notebookJson = await response.json();
+                const fileName = url.substring(url.lastIndexOf('/') + 1) || "URL Notebook";
+                loadAndRenderNotebook(notebookJson, fileName);
+            } catch (error) {
+                console.error("URL fetch/parse error:", error);
+                showError(`Could not load or parse notebook from URL. ${error.message}`);
             }
-            const notebookJson = await response.json();
-            const fileName = url.substring(url.lastIndexOf('/') + 1) || "URL Notebook";
-            loadAndRenderNotebook(notebookJson, fileName);
-        } catch (error) {
-            console.error("URL fetch/parse error:", error);
-            errorMessage.textContent = `Error: Could not load or parse notebook from URL. ${error.message}`;
-            errorMessage.classList.remove('hidden');
-        }
+        });
     }
-    
+
     function loadAndRenderNotebook(notebookData, fileName) {
         try {
             if (!notebookData || !Array.isArray(notebookData.cells)) {
                 throw new Error("Invalid notebook format: 'cells' array not found.");
             }
-            // Standardize cell.source and ensure metadata exists
             notebookData.cells.forEach(cell => {
-                cell.metadata = cell.metadata || {}; // Ensure metadata object exists
+                cell.metadata = cell.metadata || {};
                 const source = cell.source;
                 if (typeof source === 'string') {
                     const lines = source.split('\n');
@@ -461,40 +705,32 @@
                 }
             });
             notebook = notebookData;
+            undoStack = []; redoStack = []; updateHistoryButtons();
+            searchInput.value = '';
             filenameInput.value = fileName.replace(/\.ipynb$/, '');
             filenameContainer.classList.remove('hidden');
+            editingIndex = null;
             renderNotebook();
             enableActionButtons();
-            errorMessage.textContent = '';
-            errorMessage.classList.add('hidden');
+            clearError();
+            setDirty(false);
         } catch (error) {
             console.error("Notebook loading error:", error);
-            errorMessage.textContent = `Error: ${error.message}`;
-            errorMessage.classList.remove('hidden');
+            showError(`Error: ${error.message}`);
             resetState();
         }
     }
 
-    /**
-     * Prepares the notebook object for export.
-     * This involves saving any open editors and ensuring the 'source' property of each cell
-     * is in the correct format (an array of strings with newlines).
-     * @returns {object} A deep copy of the notebook, ready for serialization.
-     */
     function getNotebookForExport() {
-        // First, ensure any open editor's content is saved into our internal notebook object.
-        document.querySelectorAll('.cell-editor').forEach(editor => {
-            if (editor.style.display !== 'none') {
+        document.querySelectorAll('.cell-edit-wrap').forEach(wrap => {
+            if (wrap.style.display !== 'none') {
+                const editor = wrap.querySelector('.cell-editor');
                 const index = parseInt(editor.dataset.index, 10);
-                if (!isNaN(index)) {
-                    saveEditorContent(index, editor.value);
-                }
+                if (!isNaN(index)) saveEditorContent(index, editor.value);
             }
         });
-        // Create a deep copy for modification to avoid altering the live state.
         return JSON.parse(JSON.stringify(notebook));
     }
-
 
     function handleFileDownload() {
         if (!notebook) return;
@@ -508,16 +744,15 @@
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(a.href);
+        setDirty(false);
+        toast('Notebook downloaded');
     }
 
     function updateRawView() {
         if (!notebook || rawViewContainer.classList.contains('hidden')) return;
         const notebookForView = getNotebookForExport();
-        // For raw view, joining the source array makes it more readable.
         notebookForView.cells.forEach(cell => {
-            if(Array.isArray(cell.source)) {
-                cell.source = cell.source.join('');
-            }
+            if (Array.isArray(cell.source)) cell.source = cell.source.join('');
         });
         rawViewCode.textContent = JSON.stringify(notebookForView, null, 2);
         Prism.highlightElement(rawViewCode);
@@ -526,277 +761,428 @@
     function toggleRawView() {
         const isHidden = rawViewContainer.classList.toggle('hidden');
         if (isHidden) {
-            mainEditorPanel.classList.remove('w-3/5');
-            mainEditorPanel.classList.add('w-full');
-            viewRawBtn.textContent = 'Raw';
+            mainEditorPanel.classList.remove('w-3/5'); mainEditorPanel.classList.add('w-full');
+            rawBtnLabel.textContent = 'Raw';
         } else {
-            mainEditorPanel.classList.remove('w-full');
-            mainEditorPanel.classList.add('w-3/5');
-            viewRawBtn.textContent = 'Hide';
+            mainEditorPanel.classList.remove('w-full'); mainEditorPanel.classList.add('w-3/5');
+            rawBtnLabel.textContent = 'Hide';
             updateRawView();
         }
     }
-    
-    /**
-     * Saves the content from a textarea editor into the main notebook state object.
-     * The content is converted from a single string into an array of strings (lines),
-     * with each line ending in a newline character.
-     * @param {number} index - The index of the cell to save.
-     * @param {string} text - The text content from the editor.
-     */
+
     function saveEditorContent(index, text) {
-         const lines = text.split('\n');
-         notebook.cells[index].source = lines.map((line, i) => {
-            // Add a newline to every line except the last one.
-            return i < lines.length - 1 ? line + '\n' : line;
-        });
+        const lines = text.split('\n');
+        notebook.cells[index].source = lines.map((line, i) => i < lines.length - 1 ? line + '\n' : line);
     }
-    
+
+    // ---------- Markdown mini-toolbar helpers ----------
+    function wrapSelection(textarea, before, after, placeholder) {
+        const start = textarea.selectionStart, end = textarea.selectionEnd;
+        const val = textarea.value;
+        const selected = val.slice(start, end) || placeholder;
+        textarea.value = val.slice(0, start) + before + selected + after + val.slice(end);
+        const cs = start + before.length;
+        textarea.focus();
+        textarea.setSelectionRange(cs, cs + selected.length);
+    }
+    function prefixLines(textarea, prefix) {
+        const start = textarea.selectionStart, end = textarea.selectionEnd;
+        const val = textarea.value;
+        const lineStart = val.lastIndexOf('\n', start - 1) + 1;
+        let lineEnd = val.indexOf('\n', end);
+        if (lineEnd === -1) lineEnd = val.length;
+        const block = val.slice(lineStart, lineEnd);
+        const newBlock = block.split('\n').map(l => l ? prefix + l : l).join('\n');
+        textarea.value = val.slice(0, lineStart) + newBlock + val.slice(lineEnd);
+        textarea.focus();
+        textarea.setSelectionRange(lineStart, lineStart + newBlock.length);
+    }
+
+    // ---------- Cell actions ----------
     function handleCellActions(e) {
         const target = e.target.closest('button');
         if (!target) return;
         const action = target.dataset.action;
         const index = parseInt(target.dataset.index, 10);
 
+        if (action && action.startsWith('md-')) {
+            const wrap = target.closest('.cell-edit-wrap');
+            const editor = wrap.querySelector('.cell-editor');
+            if (action === 'md-bold') wrapSelection(editor, '**', '**', 'bold text');
+            else if (action === 'md-italic') wrapSelection(editor, '*', '*', 'italic text');
+            else if (action === 'md-code') wrapSelection(editor, '`', '`', 'code');
+            else if (action === 'md-link') wrapSelection(editor, '[', '](https://)', 'link text');
+            else if (action === 'md-list') prefixLines(editor, '- ');
+            return;
+        }
+
         if (action === 'delete-cell') {
-            notebook.cells.splice(index, 1);
-        } else if (action === 'add-code' || action === 'add-markdown') {
-            const cellType = action === 'add-code' ? 'code' : 'markdown';
-            const newCell = { cell_type: cellType, source: [`# New ${cellType} cell\n`], metadata: {} };
-            if (cellType === 'code') {
-                newCell.outputs = [];
-                newCell.execution_count = null;
+            const cell = notebook.cells[index];
+            const hasContent = Array.isArray(cell.source) && cell.source.join('').trim().length > 0;
+            const doDelete = () => {
+                record();
+                notebook.cells.splice(index, 1);
+                if (editingIndex === index) editingIndex = null;
+                setDirty(true);
+                renderNotebook();
+            };
+            if (hasContent) {
+                askConfirm('Delete this cell?', `This removes the ${cell.cell_type} cell and its content. You can undo with Ctrl/⌘+Z.`, 'Delete', doDelete);
+            } else {
+                doDelete();
             }
+            return;
+        } else if (action === 'add-code' || action === 'add-markdown') {
+            record();
+            const cellType = action === 'add-code' ? 'code' : 'markdown';
+            const newCell = { cell_type: cellType, source: [], metadata: {} };
+            if (cellType === 'code') { newCell.outputs = []; newCell.execution_count = null; }
             notebook.cells.splice(index + 1, 0, newCell);
+            setDirty(true);
+            renderNotebook();
+            toggleEditor(index + 1, true);
+            return;
+        } else if (action === 'duplicate-cell') {
+            record();
+            const copy = JSON.parse(JSON.stringify(notebook.cells[index]));
+            notebook.cells.splice(index + 1, 0, copy);
+            setDirty(true);
+        } else if (action === 'convert-cell') {
+            record();
+            const cell = notebook.cells[index];
+            cell.cell_type = cell.cell_type === 'code' ? 'markdown' : 'code';
+            if (cell.cell_type === 'code') { cell.outputs = cell.outputs || []; cell.execution_count = null; }
+            else { delete cell.outputs; delete cell.execution_count; }
+            setDirty(true);
         } else if (action === 'edit-cell') {
-            // If the cell is collapsed, expand it first.
             if (notebook.cells[index].metadata.collapsed) {
                 notebook.cells[index].metadata.collapsed = false;
-                // Manually update the DOM to reflect the change without a full re-render
-                // to avoid losing focus when the editor is toggled on.
                 const cellContainer = contentArea.querySelector(`.cell-container[data-index="${index}"]`);
                 cellContainer.querySelector('.cell-content').classList.remove('collapsed');
-                const toggleButton = cellContainer.querySelector('button[data-action="toggle-collapse"]');
-                toggleButton.title = 'Collapse cell';
-                const toggleButtonSpan = toggleButton.querySelector('span');
-                toggleButtonSpan.textContent = '-';
             }
             toggleEditor(index, true);
-            return; // Avoid re-rendering immediately
+            return;
         } else if (action === 'save-cell') {
-            const editor = contentArea.querySelector(`.cell-container[data-index="${index}"] .cell-editor`);
-            saveEditorContent(index, editor.value);
-            toggleEditor(index, false);
+            commitCellEdit(index);
+            return;
         } else if (action === 'cancel-edit') {
+            editingIndex = null;
             toggleEditor(index, false);
-            return; // Avoid re-rendering
+            return;
         } else if (action === 'move-cell-up' && index > 0) {
+            record();
             [notebook.cells[index], notebook.cells[index - 1]] = [notebook.cells[index - 1], notebook.cells[index]];
+            setDirty(true);
         } else if (action === 'move-cell-down' && index < notebook.cells.length - 1) {
+            record();
             [notebook.cells[index], notebook.cells[index + 1]] = [notebook.cells[index + 1], notebook.cells[index]];
+            setDirty(true);
         } else if (action === 'toggle-collapse') {
             notebook.cells[index].metadata.collapsed = !notebook.cells[index].metadata.collapsed;
         }
         renderNotebook();
     }
 
+    function commitCellEdit(index) {
+        const editor = contentArea.querySelector(`.cell-container[data-index="${index}"] .cell-editor`);
+        record();
+        saveEditorContent(index, editor.value);
+        setDirty(true);
+        editingIndex = null;
+        toggleEditor(index, false);
+    }
+
     function toggleEditor(index, showEditor) {
         const cellContainer = contentArea.querySelector(`.cell-container[data-index="${index}"]`);
+        if (!cellContainer) return;
         const viewer = cellContainer.querySelector('.cell-viewer');
-        const editor = cellContainer.querySelector('.cell-editor');
+        const wrap = cellContainer.querySelector('.cell-edit-wrap');
+        const editor = wrap.querySelector('.cell-editor');
         const editBtn = cellContainer.querySelector('button[data-action="edit-cell"]');
         const saveBtn = cellContainer.querySelector('button[data-action="save-cell"]');
         const cancelBtn = cellContainer.querySelector('button[data-action="cancel-edit"]');
 
         viewer.style.display = showEditor ? 'none' : 'block';
-        editor.style.display = showEditor ? 'block' : 'none';
-        editBtn.style.display = showEditor ? 'none' : 'inline-block';
-        saveBtn.style.display = showEditor ? 'inline-block' : 'none';
-        cancelBtn.style.display = showEditor ? 'inline-block' : 'none';
+        wrap.style.display = showEditor ? 'block' : 'none';
+        editBtn.style.display = showEditor ? 'none' : 'inline-flex';
+        saveBtn.style.display = showEditor ? 'inline-flex' : 'none';
+        cancelBtn.style.display = showEditor ? 'inline-flex' : 'none';
 
         if (showEditor) {
+            editingIndex = index;
             editor.value = Array.isArray(notebook.cells[index].source) ? notebook.cells[index].source.join('') : '';
             editor.focus();
         } else {
-             renderNotebook();
+            renderNotebook();
         }
+    }
+
+    function handleCellEditorKeydown(e) {
+        if (!e.target.classList.contains('cell-editor')) return;
+        const index = parseInt(e.target.dataset.index, 10);
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            const ta = e.target;
+            const s = ta.selectionStart, en = ta.selectionEnd;
+            ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+            ta.setSelectionRange(s + 4, s + 4);
+        } else if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+            e.preventDefault();
+            commitCellEdit(index);
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            editingIndex = null;
+            toggleEditor(index, false);
+        }
+    }
+
+    // ---------- Search ----------
+    function applySearch() {
+        if (!notebook) return;
+        const q = searchInput.value.trim().toLowerCase();
+        const containers = contentArea.querySelectorAll('.cell-container');
+        let shown = 0;
+        containers.forEach(c => {
+            const idx = +c.dataset.index;
+            const cell = notebook.cells[idx];
+            const text = Array.isArray(cell.source) ? cell.source.join('').toLowerCase() : '';
+            const match = !q || text.includes(q);
+            c.style.display = match ? '' : 'none';
+            if (match) shown++;
+        });
+        searchCount.textContent = q ? `${shown} of ${containers.length} cells` : '';
+    }
+
+    // ---------- Stats ----------
+    function updateStats() {
+        if (!notebook || !notebook.cells.length) { statsText.textContent = 'No cells yet'; return; }
+        const code = notebook.cells.filter(c => c.cell_type === 'code').length;
+        const md = notebook.cells.filter(c => c.cell_type === 'markdown').length;
+        const words = notebook.cells.reduce((sum, c) => {
+            const text = Array.isArray(c.source) ? c.source.join('') : '';
+            return sum + (text.trim() ? text.trim().split(/\s+/).length : 0);
+        }, 0);
+        statsText.textContent = `${notebook.cells.length} cell${notebook.cells.length !== 1 ? 's' : ''} · ${code} code · ${md} markdown · ${words.toLocaleString()} words`;
+    }
+
+    // ---------- Rendering ----------
+    function mdToolbarHTML() {
+        return `<div class="md-toolbar">
+            <button type="button" data-action="md-bold" title="Bold"><b>B</b></button>
+            <button type="button" data-action="md-italic" title="Italic"><i>I</i></button>
+            <button type="button" data-action="md-code" title="Inline code">&lt;/&gt;</button>
+            <button type="button" data-action="md-link" title="Link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg></button>
+            <button type="button" data-action="md-list" title="Bulleted list"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button>
+        </div>`;
     }
 
     function renderNotebook() {
         contentArea.innerHTML = '';
-        if (!notebook || !notebook.cells) return;
+        secondaryBar.classList.toggle('hidden', !notebook);
+        secondaryBar.classList.toggle('flex', !!notebook);
+        if (!notebook) return;
+
+        if (!notebook.cells.length) {
+            contentArea.innerHTML = `
+                <div class="empty-notebook-box text-center text-gray-400 py-16 border-2 border-dashed border-gray-200 rounded-xl">
+                    <p class="text-base mb-4">This notebook is empty.</p>
+                    <div class="flex items-center justify-center gap-2">
+                        <button class="tbtn tbtn-ghost" data-action="add-code" data-index="-1">+ Code cell</button>
+                        <button class="tbtn tbtn-ghost" data-action="add-markdown" data-index="-1">+ Markdown cell</button>
+                    </div>
+                </div>`;
+            updateStats();
+            updateRawView();
+            return;
+        }
+
         notebook.cells.forEach((cell, index) => {
             const isFirst = index === 0;
             const isLast = index === notebook.cells.length - 1;
-            const isCollapsed = cell.metadata.collapsed;
+            const isCollapsed = !!cell.metadata.collapsed;
+            const typeLabel = cell.cell_type === 'markdown' ? 'Markdown' : 'Code';
 
             const cellContainer = document.createElement('div');
             cellContainer.className = 'cell-container';
             cellContainer.dataset.index = index;
-            
+
             cellContainer.innerHTML = `
-                <div class="notebook-cell">
+                <div class="notebook-cell type-${cell.cell_type}">
                     <div class="cell-toolbar" draggable="true">
-                        <button data-action="toggle-collapse" data-index="${index}" title="${isCollapsed ? 'Expand' : 'Collapse'} cell">
-                            <span class="font-bold w-4 h-4 flex items-center justify-center">${isCollapsed ? '+' : '-'}</span>
+                        <button class="cell-btn" data-action="toggle-collapse" data-index="${index}" title="${isCollapsed ? 'Expand' : 'Collapse'} cell">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="transform:rotate(${isCollapsed ? '0' : '90'}deg)"><path d="M9 18l6-6-6-6"/></svg>
                         </button>
-                        <span class="cell-type-label text-xs text-gray-500 font-mono uppercase ml-2">[${index + 1}] ${cell.cell_type}</span>
+                        <span class="cell-type-label ml-1"><span class="type-dot ${cell.cell_type}"></span>Cell ${index + 1} · ${typeLabel}</span>
                         <div class="flex-grow"></div>
-                        <button data-action="move-cell-up" data-index="${index}" title="Move cell up" ${isFirst ? 'disabled' : ''}><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg></button>
-                        <button data-action="move-cell-down" data-index="${index}" title="Move cell down" ${isLast ? 'disabled' : ''}><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></button>
-                        <button data-action="edit-cell" data-index="${index}">Edit</button>
-                        <button data-action="save-cell" data-index="${index}" style="display: none;">Save</button>
-                        <button data-action="cancel-edit" data-index="${index}" style="display: none;">Cancel</button>
-                        <button data-action="delete-cell" data-index="${index}">Delete</button>
+                        <button class="cell-btn" data-action="move-cell-up" data-index="${index}" title="Move up" ${isFirst ? 'disabled' : ''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 15l7-7 7 7"/></svg></button>
+                        <button class="cell-btn" data-action="move-cell-down" data-index="${index}" title="Move down" ${isLast ? 'disabled' : ''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 9l-7 7-7-7"/></svg></button>
+                        <button class="cell-btn" data-action="duplicate-cell" data-index="${index}" title="Duplicate cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                        <button class="cell-btn" data-action="convert-cell" data-index="${index}" title="Convert to ${cell.cell_type === 'code' ? 'Markdown' : 'Code'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></button>
+                        <button class="cell-btn" data-action="edit-cell" data-index="${index}" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                        <button class="cell-btn-text save" data-action="save-cell" data-index="${index}" style="display:none;">Save</button>
+                        <button class="cell-btn-text cancel" data-action="cancel-edit" data-index="${index}" style="display:none;">Cancel</button>
+                        <button class="cell-btn danger" data-action="delete-cell" data-index="${index}" title="Delete cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
                     </div>
                     <div class="cell-content ${isCollapsed ? 'collapsed' : ''}">
                         <div class="cell-viewer"></div>
-                        <textarea class="cell-editor" data-index="${index}" style="display: none;"></textarea>
+                        <div class="cell-edit-wrap" style="display:none;">
+                            ${cell.cell_type === 'markdown' ? mdToolbarHTML() : ''}
+                            <textarea class="cell-editor" data-index="${index}" spellcheck="false"></textarea>
+                        </div>
                     </div>
                 </div>
                 <div class="add-cell-bar">
                     <hr/>
                     <div class="buttons">
-                        <button class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold" data-action="add-code" data-index="${index}">+ Code</button>
-                        <button class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold" data-action="add-markdown" data-index="${index}">+ Markdown</button>
+                        <button data-action="add-code" data-index="${index}">+ Code</button>
+                        <button data-action="add-markdown" data-index="${index}">+ Markdown</button>
                     </div>
                 </div>
             `;
-            
+
             const viewer = cellContainer.querySelector('.cell-viewer');
             const sourceText = Array.isArray(cell.source) ? cell.source.join('') : '';
 
             if (cell.cell_type === 'markdown') {
-                viewer.className = 'cell-viewer markdown-content';
-                viewer.innerHTML = marked.parse(sourceText);
+                viewer.className = 'cell-viewer markdown-content' + (sourceText.trim() ? '' : ' empty');
+                viewer.innerHTML = sourceText.trim() ? marked.parse(sourceText) : 'Empty markdown cell — click Edit to add content.';
+                viewer.addEventListener('dblclick', () => toggleEditor(index, true));
             } else if (cell.cell_type === 'code') {
                 viewer.className = 'cell-viewer code-content';
                 const pre = document.createElement('pre');
                 const code = document.createElement('code');
                 const language = notebook.metadata?.kernelspec?.language || 'python';
                 code.className = `language-${language}`;
-                code.textContent = sourceText;
+                code.textContent = sourceText || '# empty cell';
                 pre.appendChild(code);
                 viewer.appendChild(pre);
+                viewer.addEventListener('dblclick', () => toggleEditor(index, true));
             }
             contentArea.appendChild(cellContainer);
         });
         Prism.highlightAll();
         updateRawView();
+        updateStats();
+        if (searchInput.value.trim()) applySearch();
     }
 
-    // --- Drag and Drop Logic ---
+    // ---------- Drag and Drop (cell reorder) ----------
     let draggedItem = null;
 
     contentArea.addEventListener('dragstart', (e) => {
         const handle = e.target.closest('.cell-toolbar');
-        if (!handle) {
-            e.preventDefault();
-            return;
-        }
-
+        if (!handle) { e.preventDefault(); return; }
         draggedItem = e.target.closest('.cell-container');
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', draggedItem.dataset.index);
-
-        // Use a timeout to allow the browser to create the drag image
-        setTimeout(() => {
-            if (draggedItem) {
-                draggedItem.classList.add('dragging');
-            }
-        }, 0);
+        setTimeout(() => { if (draggedItem) draggedItem.classList.add('dragging'); }, 0);
     });
 
-    contentArea.addEventListener('dragend', (e) => {
-        if (draggedItem) {
-            draggedItem.classList.remove('dragging');
-        }
+    contentArea.addEventListener('dragend', () => {
+        if (draggedItem) draggedItem.classList.remove('dragging');
         draggedItem = null;
         const placeholder = contentArea.querySelector('.drop-placeholder');
-        if (placeholder) {
-            placeholder.remove();
-        }
+        if (placeholder) placeholder.remove();
     });
 
     contentArea.addEventListener('dragover', (e) => {
         e.preventDefault();
         const overElement = e.target.closest('.cell-container');
-        if (!overElement || overElement === draggedItem) {
-            return;
-        }
+        if (!overElement || overElement === draggedItem) return;
 
         let placeholder = contentArea.querySelector('.drop-placeholder');
-        if (!placeholder) {
-            placeholder = document.createElement('div');
-            placeholder.className = 'drop-placeholder';
-        }
+        if (!placeholder) { placeholder = document.createElement('div'); placeholder.className = 'drop-placeholder'; }
 
         const rect = overElement.getBoundingClientRect();
         const isAfter = e.clientY > rect.top + rect.height / 2;
-
-        if (isAfter) {
-            contentArea.insertBefore(placeholder, overElement.nextSibling);
-        } else {
-            contentArea.insertBefore(placeholder, overElement);
-        }
+        if (isAfter) contentArea.insertBefore(placeholder, overElement.nextSibling);
+        else contentArea.insertBefore(placeholder, overElement);
     });
 
     contentArea.addEventListener('drop', (e) => {
         e.preventDefault();
         const placeholder = contentArea.querySelector('.drop-placeholder');
-        if (!placeholder || !draggedItem) {
-            return;
-        }
+        if (!placeholder || !draggedItem) return;
 
         const fromIndex = parseInt(draggedItem.dataset.index, 10);
-        
-        // Find the new index based on the placeholder's position
         const allContainers = [...contentArea.querySelectorAll('.cell-container')];
         let toIndex = allContainers.indexOf(placeholder.nextSibling);
+        if (toIndex === -1) toIndex = allContainers.length;
+        if (fromIndex < toIndex) toIndex--;
 
-        // If placeholder is at the end, toIndex will be -1
-        if (toIndex === -1) {
-            toIndex = allContainers.length;
-        }
-        
-        // Adjust index if moving item downwards
-        if (fromIndex < toIndex) {
-            toIndex--;
-        }
-        
-        // Remove the placeholder before re-rendering
         placeholder.remove();
-
-        // Reorder the data array
+        record();
         const [movedItem] = notebook.cells.splice(fromIndex, 1);
         notebook.cells.splice(toIndex, 0, movedItem);
-
-        // Re-render the entire notebook
+        setDirty(true);
         renderNotebook();
     });
 
+    // ---------- Drag and drop (external .ipynb file into the content area) ----------
+    function hasFilesInDrag(e) { return e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files'); }
+    ['dragenter', 'dragover'].forEach(evt => contentWrapper.addEventListener(evt, (e) => {
+        if (!hasFilesInDrag(e)) return;
+        e.preventDefault();
+        contentDropHint.classList.add('active');
+    }));
+    contentWrapper.addEventListener('dragleave', (e) => {
+        if (!hasFilesInDrag(e)) return;
+        if (!e.relatedTarget || !contentWrapper.contains(e.relatedTarget)) {
+            contentDropHint.classList.remove('active');
+        }
+    });
+    contentWrapper.addEventListener('drop', (e) => {
+        if (!hasFilesInDrag(e)) return;
+        e.preventDefault();
+        contentDropHint.classList.remove('active');
+        const file = e.dataTransfer.files && e.dataTransfer.files[0];
+        if (file) guardDiscard(() => loadFileObject(file));
+    });
 
-    // Helper functions
+    // ---------- Global keyboard shortcuts ----------
+    document.addEventListener('keydown', (e) => {
+        const mod = e.metaKey || e.ctrlKey;
+        const inTextarea = document.activeElement && document.activeElement.tagName === 'TEXTAREA';
+
+        if (e.key === 'Escape') {
+            if (!shortcutsModal.classList.contains('hidden')) { shortcutsModal.classList.add('hidden'); return; }
+            if (!confirmModal.classList.contains('hidden')) { closeConfirm(); return; }
+            if (!pasteModal.classList.contains('hidden')) { closePasteModal(); return; }
+            if (!urlModal.classList.contains('hidden')) { closeUrlModal(); return; }
+            return; // per-editor Escape is handled by handleCellEditorKeydown
+        }
+        if (inTextarea) return; // let native undo/typing behave normally inside editors/modals
+
+        if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
+        else if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
+        else if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); if (notebook) handleFileDownload(); }
+    });
+
+    // ---------- Helper functions ----------
     function resetState() {
-        contentArea.innerHTML = `<div id="placeholder-text" class="text-center text-gray-400 py-24"><svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg><p class="mt-4 text-lg">Start or upload an IPython notebook to get started.</p></div>`;
-        errorMessage.textContent = '';
-        errorMessage.classList.add('hidden');
+        contentArea.innerHTML = PLACEHOLDER_HTML;
+        clearError();
         notebook = null;
+        undoStack = []; redoStack = []; updateHistoryButtons();
+        editingIndex = null;
+        searchInput.value = '';
         filenameContainer.classList.add('hidden');
+        secondaryBar.classList.add('hidden');
+        secondaryBar.classList.remove('flex');
+        setDirty(false);
         disableActionButtons();
     }
     function disableActionButtons() {
         downloadBtn.disabled = true;
-        downloadBtn.classList.add('opacity-50', 'cursor-not-allowed');
         viewRawBtn.disabled = true;
-        viewRawBtn.classList.add('opacity-50', 'cursor-not-allowed');
     }
     function enableActionButtons() {
         downloadBtn.disabled = false;
-        downloadBtn.classList.remove('opacity-50', 'cursor-not-allowed');
         viewRawBtn.disabled = false;
-        viewRawBtn.classList.remove('opacity-50', 'cursor-not-allowed');
     }
+
+    // ---------- Init ----------
+    checkAutosaveOnLoad();
 </script>
 </body>
 </html>
