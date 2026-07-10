@@ -3,174 +3,230 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Metadata Remover</title>
+    <title>Metadata Cleaner — Strip EXIF Data from Images</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/exifreader@4.21.0/dist/exif-reader.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --accent: #2563eb;
+            --accent-hover: #1d4ed8;
+            --ink: #0f172a;
+            --muted: #64748b;
+            --line: #e2e8f0;
+            --bg: #f8fafc;
+            --ring: rgba(37,99,235,.18);
+        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body {
-            font-family: 'Inter', sans-serif;
-        }
-        .custom-file-upload {
-            border: 2px dashed #cbd5e1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 2rem;
-            cursor: pointer;
-            text-align: center;
-            border-radius: 0.5rem;
-            transition: background-color 0.3s, border-color 0.3s;
-            height: auto; /* Adjusted height */
-        }
-        .custom-file-upload:hover, .dragover {
-            background-color: #f1f5f9;
-            border-color: #94a3b8;
-        }
-        .image-card {
-            border: 2px solid transparent;
-            transition: border-color 0.3s;
-            display: flex;
-            flex-direction: column;
-            position: relative; /* Needed for positioning the remove button */
-            width: calc(50% - 0.5rem); /* Flexbox grid column width */
-        }
-        @media (min-width: 640px) {
-            .image-card { width: calc(33.333% - 0.667rem); }
-        }
-        @media (min-width: 768px) {
-            .image-card { width: calc(25% - 0.75rem); }
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            color: var(--ink);
+            background: var(--bg);
+            background-image:
+                radial-gradient(50rem 40rem at 108% -10%, #eff6ff 0%, rgba(239,246,255,0) 55%),
+                radial-gradient(45rem 40rem at -8% 0%, #f5f3ff00 0%, rgba(245,243,255,0) 50%);
+            background-attachment: fixed;
+            margin: 0;
+            -webkit-font-smoothing: antialiased;
         }
 
-        .image-card.selected {
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.4);
+        .thin-scroll::-webkit-scrollbar { width: 9px; height: 9px; }
+        .thin-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
+
+        .card { background: #fff; border: 1px solid var(--line); border-radius: 1rem; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
+
+        .btn { display:inline-flex; align-items:center; justify-content:center; gap:.45rem; font-weight:600; font-size:.85rem; padding:.6rem 1rem; border-radius:.7rem; cursor:pointer; border:1px solid transparent; transition:all .15s ease; white-space:nowrap; }
+        .btn:disabled { opacity:.5; cursor:not-allowed; }
+        .btn svg { width:1.05rem; height:1.05rem; }
+        .btn-primary { background: var(--accent); color:#fff; }
+        .btn-primary:not(:disabled):hover { background: var(--accent-hover); }
+        .btn-ghost { background:#fff; color:var(--ink); border-color:var(--line); }
+        .btn-ghost:not(:disabled):hover { background:#f8fafc; border-color:#cbd5e1; }
+        .btn-danger { background:#fff; color:#e11d48; border-color:#fecdd3; }
+        .btn-danger:not(:disabled):hover { background:#fff1f2; }
+        .btn-sm { padding:.45rem .75rem; font-size:.8rem; }
+
+        /* Upload dropzone */
+        .dropzone {
+            border: 2px dashed #cbd5e1;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 3rem 1.5rem; cursor: pointer; text-align: center; border-radius: 1rem;
+            transition: background-color .2s, border-color .2s;
+            background: #fff;
         }
-        .tooltip-container .tooltip {
-            visibility: hidden;
-            opacity: 0;
-            transition: opacity 0.3s;
+        .dropzone:hover, .dropzone.dragover { background-color: #eff6ff; border-color: var(--accent); }
+        .dropzone-icon { width: 3.25rem; height: 3.25rem; border-radius: 1rem; background:#eff6ff; color:var(--accent); display:flex; align-items:center; justify-content:center; margin-bottom:1rem; }
+
+        .feature-item { display:flex; align-items:flex-start; gap:.65rem; }
+        .feature-item .dot { width:1.6rem; height:1.6rem; border-radius:.5rem; background:#eff6ff; color:var(--accent); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+        .feature-item svg { width:.95rem; height:.95rem; }
+
+        /* Image gallery cards */
+        .image-card {
+            border: 2px solid transparent; border-radius: .85rem; overflow: hidden; cursor: pointer;
+            display: flex; flex-direction: column; position: relative; background:#fff;
+            box-shadow: 0 1px 2px rgba(15,23,42,.06);
+            transition: border-color .15s, box-shadow .15s, transform .1s;
+            width: calc(50% - .5rem);
         }
-        .tooltip-container:hover .tooltip {
-            visibility: visible;
-            opacity: 1;
-        }
+        @media (min-width: 640px) { .image-card { width: calc(33.333% - .667rem); } }
+        @media (min-width: 1024px) { .image-card { width: calc(33.333% - .667rem); } }
+        .image-card:hover { box-shadow: 0 8px 20px -8px rgba(15,23,42,.25); }
+        .image-card.selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
+        .image-card img { display:block; }
+        .image-card .card-label { font-size:.7rem; padding:.4rem .5rem; background:#f8fafc; border-top:1px solid var(--line); height:2.6rem; display:flex; align-items:center; justify-content:center; text-align:center; word-break:break-word; color:#475569; line-height:1.15; }
+
         .remove-btn {
-            position: absolute;
-            top: 0.25rem;
-            right: 0.25rem;
-            background-color: rgba(0,0,0,0.5);
-            color: white;
-            border-radius: 9999px;
-            width: 1.5rem;
-            height: 1.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            opacity: 0;
-            transition: opacity 0.2s;
-            cursor: pointer;
+            position: absolute; top: .35rem; right: .35rem;
+            background-color: rgba(15,23,42,.55); color: #fff; border-radius: 9999px;
+            width: 1.5rem; height: 1.5rem; display: flex; align-items: center; justify-content: center;
+            opacity: 0; transition: opacity .15s, background-color .15s; cursor: pointer;
         }
-        .image-card:hover .remove-btn {
-            opacity: 1;
-        }
-        .main-dragover {
-            outline: 2px dashed #3b82f6;
-            outline-offset: -1rem;
-        }
+        .remove-btn:hover { background-color: #dc2626; }
+        .image-card:hover .remove-btn { opacity: 1; }
+        .image-card .remove-btn svg { width: .8rem; height: .8rem; }
+
+        /* Tooltip */
+        .tooltip-container { position: relative; display:inline-flex; }
+        .tooltip-container .tooltip { visibility: hidden; opacity: 0; transition: opacity .15s; }
+        .tooltip-container:hover .tooltip { visibility: visible; opacity: 1; }
+
+        /* Stat chips */
+        .stat-chip { flex:1; text-align:center; padding:.6rem .5rem; }
+        .stat-chip .label { font-size:.68rem; font-weight:600; text-transform:uppercase; letter-spacing:.03em; color:var(--muted); }
+        .stat-chip .value { font-size:.95rem; font-weight:700; color:var(--ink); margin-top:.15rem; }
+
+        /* Metadata table */
+        #metadata-display table { width:100%; border-collapse:collapse; }
+        #metadata-display thead th { position:sticky; top:0; background:#f8fafc; text-align:left; font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--muted); padding:.55rem .75rem; border-bottom:1px solid var(--line); }
+        #metadata-display tbody td { padding:.5rem .75rem; font-size:.8rem; border-bottom:1px solid #f1f5f9; vertical-align:top; }
+        #metadata-display tbody tr:hover { background:#f8fafc; }
+        #metadata-display tbody td:first-child { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:.72rem; color:#475569; white-space:nowrap; }
+
+        .switch { display:inline-flex; align-items:center; gap:.5rem; font-size:.83rem; font-weight:500; color:#475569; cursor:pointer; }
+        .switch input { width:1.05rem; height:1.05rem; accent-color:var(--accent); cursor:pointer; }
+
+        .field { width:100%; padding:.55rem .7rem; font-size:.85rem; color:var(--ink); background:#fff; border:1px solid var(--line); border-radius:.6rem; outline:none; transition:border-color .15s, box-shadow .15s; }
+        .field:focus { border-color:#93c5fd; box-shadow:0 0 0 4px var(--ring); }
+
+        /* Full-page drag overlay */
+        #drag-overlay { position: fixed; inset: 0; z-index: 1200; background: rgba(37,99,235,.08); backdrop-filter: blur(1px); align-items: center; justify-content: center; pointer-events: none; }
+        #drag-overlay .box { border: 3px dashed var(--accent); background: #fff; border-radius: 1rem; padding: 2.25rem 3rem; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,.15); }
+
+        /* Modal */
+        .modal-back { position: fixed; inset: 0; background: rgba(15,23,42,.5); display:flex; align-items:center; justify-content:center; z-index: 1300; padding: 1rem; }
     </style>
 </head>
-<body class="bg-gray-100 text-gray-800 min-h-screen flex items-start justify-center p-4">
-
-    <div class="w-full max-w-6xl mx-auto bg-white rounded-xl shadow-lg p-6 md:p-8">
-        <div class="text-center mb-8">
-            <h1 class="text-3xl md:text-4xl font-bold text-gray-900">Image Metadata Remover</h1>
-            <p class="text-gray-600 mt-2">View and erase metadata from your images.</p>
-        </div>
+<body class="min-h-screen">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+        <header class="flex items-center gap-3 mb-7">
+            <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shrink-0 shadow-sm shadow-blue-200">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+            </div>
+            <div>
+                <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight">Metadata Cleaner</h1>
+                <p class="text-sm text-slate-500 -mt-0.5">View and strip EXIF metadata from your photos — entirely in your browser.</p>
+            </div>
+        </header>
 
         <div id="upload-container">
-            <label for="file-upload" class="custom-file-upload w-full">
-                <svg class="mx-auto h-16 w-16 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
-                <span class="mt-4 block text-lg font-medium text-gray-600">Click or Drag & Drop Images Here</span>
-                <span class="mt-1 block text-sm text-gray-500">Supports JPG, PNG, HEIC, etc.</span>
+            <label for="file-upload" class="dropzone w-full">
+                <div class="dropzone-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="w-7 h-7"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5M12 3v12"/></svg>
+                </div>
+                <span class="block text-base font-semibold text-slate-700">Click or drag &amp; drop images here</span>
+                <span class="mt-1 block text-sm text-slate-400">Supports JPG, PNG, HEIC, and more</span>
             </label>
             <input id="file-upload" type="file" class="hidden" accept="image/*,.heic,.heif" multiple>
-            <div class="mt-6 text-left text-gray-700 bg-gray-50 p-4 rounded-lg">
-                <h3 class="font-semibold text-lg mb-2">Features:</h3>
-                <ul class="list-disc list-inside space-y-1 text-sm">
-                    <li>Supports JPEG, PNG, and HEIC/HEIF formats.</li>
-                    <li>View all readable image metadata (EXIF, etc.).</li>
-                    <li>Erase all metadata with a single click to protect your privacy.</li>
-                    <li>Download cleaned images in different formats (JPEG, PNG).</li>
-                    <li>Optionally add noise to destroy hidden data like invisible watermarks.</li>
-                </ul>
+
+            <div class="mt-6 card p-5">
+                <h3 class="font-semibold text-sm text-slate-700 mb-3.5">What this tool does</h3>
+                <div class="grid sm:grid-cols-2 gap-x-6 gap-y-3">
+                    <div class="feature-item">
+                        <span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z" opacity="0"/><circle cx="12" cy="12" r="3"/><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/></svg></span>
+                        <span class="text-sm text-slate-600">View all readable metadata — EXIF, camera, GPS, and more.</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></span>
+                        <span class="text-sm text-slate-600">Strip all metadata with a single click to protect your privacy.</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg></span>
+                        <span class="text-sm text-slate-600">Download cleaned images as JPEG, PNG, or their original format.</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg></span>
+                        <span class="text-sm text-slate-600">Optionally add subtle noise to disrupt hidden watermarks.</span>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <div id="main-content" class="hidden grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+        <div id="main-content" class="hidden grid grid-cols-1 lg:grid-cols-2 gap-6 mt-2">
             <div>
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-2xl font-semibold text-gray-800">Uploaded Images</h2>
-                    <label for="add-more-files" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition cursor-pointer text-sm">
-                        Add Image(s)
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-base font-semibold text-slate-800">Uploaded images</h2>
+                    <label for="add-more-files" class="btn btn-primary btn-sm cursor-pointer">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                        Add images
                     </label>
                     <input id="add-more-files" type="file" class="hidden" accept="image/*,.heic,.heif" multiple>
                 </div>
-                <!-- Replaced Grid with Flexbox for robust item removal behavior -->
-                <div id="image-gallery" class="flex flex-wrap gap-4 bg-gray-50 p-4 rounded-lg border h-[500px] overflow-y-auto content-start"></div>
+                <div id="image-gallery" class="card flex flex-wrap gap-3 p-3 h-[520px] overflow-y-auto content-start thin-scroll"></div>
             </div>
 
-            <div class="flex flex-col">
-                <div id="global-actions" class="flex items-center gap-4 mb-4">
-                    <button id="download-zip-btn" class="flex-1 bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed">
-                        Download All as ZIP
+            <div class="flex flex-col min-h-0">
+                <div id="global-actions" class="flex items-center gap-2 mb-3">
+                    <button id="download-zip-btn" class="btn btn-primary flex-1">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>
+                        Download all as ZIP
                     </button>
-                    <button id="reset-btn" class="flex-1 bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition text-sm">
-                        Start Over
+                    <button id="reset-btn" class="btn btn-danger">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                        Start over
                     </button>
                 </div>
-                <h2 class="text-2xl font-semibold text-gray-800 mb-2">Image Details</h2>
-                <div id="size-info" class="p-4 bg-gray-100 rounded-lg mb-4 text-center">
-                    <p class="text-gray-500">Select an image to see details.</p>
+
+                <h2 class="text-base font-semibold text-slate-800 mb-2">Image details</h2>
+                <div id="size-info" class="card p-4 mb-3 text-center">
+                    <p class="text-slate-400 text-sm">Select an image to see details.</p>
                 </div>
-                <div id="metadata-actions" class="mb-4"></div>
-                <h3 class="text-xl font-semibold text-gray-800 mb-2">Metadata</h3>
-                <div id="metadata-display" class="bg-gray-50 border border-gray-200 rounded-lg p-4 flex-grow overflow-y-auto text-sm">
-                    <p class="text-gray-500">Metadata will appear here.</p>
+                <div id="metadata-actions" class="mb-3"></div>
+                <h3 class="text-sm font-semibold text-slate-700 mb-2">Metadata</h3>
+                <div id="metadata-display" class="card flex-grow overflow-y-auto text-sm thin-scroll" style="min-height:160px;">
+                    <p class="text-slate-400 text-sm p-4">Metadata will appear here.</p>
                 </div>
             </div>
         </div>
+
         <div id="message-box" class="mt-4 text-center font-medium hidden"></div>
     </div>
-    
+
     <!-- Confirmation Modal -->
-    <div id="confirmation-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center hidden">
-        <div class="p-8 border w-96 shadow-lg rounded-md bg-white">
-            <div class="text-center">
-                <h3 class="text-2xl font-bold text-gray-900">Are you sure?</h3>
-                <p class="text-sm text-gray-500 mt-2">This will remove all uploaded images. This action cannot be undone.</p>
-                <div class="flex justify-center mt-6 space-x-4">
-                    <button id="confirm-reset-btn" class="px-6 py-2 bg-red-600 text-white text-base font-medium rounded-md shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
-                        Yes, Start Over
-                    </button>
-                    <button id="cancel-reset-btn" class="px-6 py-2 bg-gray-200 text-gray-800 text-base font-medium rounded-md shadow-sm hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400">
-                        Cancel
-                    </button>
-                </div>
+    <div id="confirmation-modal" class="modal-back hidden">
+        <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-sm">
+            <div class="w-11 h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center mb-3">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
+            </div>
+            <h3 class="text-lg font-bold text-slate-900">Remove all images?</h3>
+            <p class="text-sm text-slate-500 mt-1">This will clear every uploaded image from this session. This action cannot be undone.</p>
+            <div class="flex justify-end gap-2 mt-6">
+                <button id="cancel-reset-btn" class="btn btn-ghost">Cancel</button>
+                <button id="confirm-reset-btn" class="btn btn-danger" style="background:#e11d48;color:#fff;border-color:#e11d48;">Yes, start over</button>
             </div>
         </div>
     </div>
 
     <!-- Full-page Drag & Drop Overlay -->
-    <div id="drag-overlay" class="fixed inset-0 bg-blue-500 bg-opacity-20 border-4 border-dashed border-blue-600 rounded-lg flex items-center justify-center hidden pointer-events-none">
-        <div class="text-center text-blue-800 font-bold text-2xl bg-white p-4 rounded-lg shadow-xl">
-            Drop Files Anywhere to Upload
+    <div id="drag-overlay" class="hidden">
+        <div class="box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.6" class="w-9 h-9 mx-auto mb-2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5M12 3v12"/></svg>
+            <p class="font-semibold text-slate-800 text-sm">Drop files anywhere to upload</p>
         </div>
     </div>
-
 
     <script>
         window.onload = () => {
@@ -199,7 +255,7 @@
             fileUpload.addEventListener('change', (e) => handleInitialImageUpload(e.target.files));
             addMoreFilesInput.addEventListener('change', (e) => handleAddMoreImages(e.target.files));
             downloadZipBtn.addEventListener('click', downloadAllAsZip);
-            
+
             resetBtn.addEventListener('click', () => {
                 confirmationModal.classList.remove('hidden');
             });
@@ -269,7 +325,7 @@
             }
 
             async function processFiles(files) {
-                showMessage('Processing files...', 'info');
+                showMessage('Processing files…', 'info');
                 const fileProcessingPromises = Array.from(files).map(async (file, index) => {
                     const fileType = file.type.toLowerCase();
                     const fileName = file.name.toLowerCase();
@@ -290,7 +346,7 @@
 
                 const newFiles = (await Promise.all(fileProcessingPromises)).filter(f => f !== null);
                 uploadedFiles.push(...newFiles);
-                
+
                 const creationPromises = newFiles.map(createImageCard);
                 await Promise.all(creationPromises);
 
@@ -306,13 +362,13 @@
                     const reader = new FileReader();
                     reader.onload = (e) => {
                         const card = document.createElement('div');
-                        card.className = 'image-card rounded-lg cursor-pointer overflow-hidden';
+                        card.className = 'image-card';
                         card.dataset.fileId = fileObj.id;
                         card.innerHTML = `
                             <img src="${e.target.result}" alt="${fileObj.name}" class="w-full h-24 object-cover">
-                            <p class="text-xs p-2 bg-gray-100 h-12 flex items-center justify-center text-center break-words" title="${fileObj.name}">${fileObj.name}</p>
+                            <p class="card-label" title="${fileObj.name}">${fileObj.name}</p>
                             <div class="remove-btn" title="Remove image">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                             </div>
                         `;
                         card.addEventListener('click', () => handleImageSelection(fileObj.id));
@@ -326,11 +382,11 @@
                     reader.readAsDataURL(fileObj.file);
                 });
             }
-            
+
             function removeImage(fileId) {
                 // Remove from array
                 uploadedFiles = uploadedFiles.filter(f => f.id !== fileId);
-                
+
                 // Remove from DOM
                 const cardToRemove = document.querySelector(`[data-file-id='${fileId}']`);
                 if (cardToRemove) {
@@ -340,8 +396,8 @@
                 // If the removed image was the selected one, clear the details panel
                 if (selectedFileId === fileId) {
                     selectedFileId = null;
-                    sizeInfo.innerHTML = `<p class="text-gray-500">Select an image to see details.</p>`;
-                    metadataDisplay.innerHTML = '<p class="text-gray-500">Metadata will appear here.</p>';
+                    sizeInfo.innerHTML = `<p class="text-slate-400 text-sm">Select an image to see details.</p>`;
+                    metadataDisplay.innerHTML = '<p class="text-slate-400 text-sm p-4">Metadata will appear here.</p>';
                     metadataActions.innerHTML = '';
                 }
 
@@ -362,9 +418,9 @@
 
             async function displayDetails(fileObj) {
                 metadataActions.innerHTML = '';
-                sizeInfo.innerHTML = `<p class="text-gray-500 animate-pulse">Calculating cleaned file size...</p>`;
-                metadataDisplay.innerHTML = `<p class="text-gray-500 animate-pulse">Reading metadata...</p>`;
-                
+                sizeInfo.innerHTML = `<p class="text-slate-400 text-sm animate-pulse">Calculating cleaned file size…</p>`;
+                metadataDisplay.innerHTML = `<p class="text-slate-400 text-sm p-4 animate-pulse">Reading metadata…</p>`;
+
                 const addNoise = document.getElementById('add-noise-toggle')?.checked || false;
                 const cleanedBlobPromise = createCleanedImageBlob(fileObj.file, null, addNoise);
                 const tagsPromise = ExifReader.load(fileObj.file).catch(() => ({}));
@@ -375,23 +431,31 @@
                 const originalSize = fileObj.file.size;
                 const cleanedSize = cleanedBlob.size;
                 const savings = originalSize > 0 ? 100 * (originalSize - cleanedSize) / originalSize : 0;
-                const savingsColor = savings > 1 ? 'text-green-600' : (savings < 0 ? 'text-red-600' : 'text-gray-600');
-                
+                const savingsColor = savings > 1 ? 'text-emerald-600' : (savings < 0 ? 'text-rose-600' : 'text-slate-500');
+
                 sizeInfo.innerHTML = `
-                    <div class="flex justify-around items-center text-sm">
-                        <div><span class="font-semibold">Original:</span> ${formatBytes(originalSize)}</div>
-                        <div><span class="font-semibold">Cleaned:</span> ${formatBytes(cleanedSize)}</div>
-                        <div class="flex items-center gap-1">
-                            <span class="font-semibold ${savingsColor}">Savings: ${savings.toFixed(2)}%</span>
-                            <div class="relative group tooltip-container">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <div class="tooltip absolute bottom-full mb-2 w-64 bg-gray-800 text-white text-xs rounded py-1 px-2 pointer-events-none">
-                                    For highly optimized images, the new file may be slightly larger after metadata is removed due to differences in browser compression.
-                                    <svg class="absolute text-gray-800 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255" xml:space="preserve"><polygon class="fill-current" points="0,0 127.5,127.5 255,0"/></svg>
-                                </div>
+                    <div class="flex items-stretch divide-x divide-slate-100">
+                        <div class="stat-chip">
+                            <div class="label">Original</div>
+                            <div class="value">${formatBytes(originalSize)}</div>
+                        </div>
+                        <div class="stat-chip">
+                            <div class="label">Cleaned</div>
+                            <div class="value">${formatBytes(cleanedSize)}</div>
+                        </div>
+                        <div class="stat-chip">
+                            <div class="label flex items-center justify-center gap-1">
+                                Savings
+                                <span class="tooltip-container">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <div class="tooltip absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-56 bg-slate-800 text-white text-xs rounded-lg py-2 px-2.5 pointer-events-none z-10 shadow-lg">
+                                        For highly optimized images, the cleaned file may be slightly larger due to differences in browser re-compression.
+                                    </div>
+                                </span>
                             </div>
+                            <div class="value ${savingsColor}">${savings.toFixed(2)}%</div>
                         </div>
                     </div>
                 `;
@@ -401,29 +465,35 @@
 
                 renderDownloadOptions(fileObj);
             }
-            
+
             function renderDownloadOptions(fileObj) {
                 metadataActions.innerHTML = `
-                    <div class="flex items-center gap-2 mb-2">
-                        <label for="format-select" class="text-sm font-medium">Download as:</label>
-                        <select id="format-select" class="flex-1 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2">
-                            <option value="original">Same as Original</option>
-                            <option value="jpeg">JPEG</option>
-                            <option value="png">PNG</option>
-                        </select>
-                        <button id="download-selected-btn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition">Download</button>
-                    </div>
-                    <div class="flex items-center justify-center gap-1 text-sm">
-                        <label for="add-noise-toggle" class="font-medium text-gray-700">Add Noise to Image:</label>
-                        <input type="checkbox" id="add-noise-toggle" class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
-                        <div class="relative group tooltip-container">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <div class="tooltip absolute bottom-full mb-2 w-64 bg-gray-800 text-white text-xs rounded py-1 px-2 pointer-events-none">
-                                This adds subtle noise to the image, which can help destroy hidden data like invisible watermarks (steganography).
-                                <svg class="absolute text-gray-800 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255" xml:space="preserve"><polygon class="fill-current" points="0,0 127.5,127.5 255,0"/></svg>
-                            </div>
+                    <div class="card p-3">
+                        <div class="flex items-center gap-2 mb-3">
+                            <label for="format-select" class="text-xs font-semibold text-slate-600 shrink-0">Download as</label>
+                            <select id="format-select" class="field flex-1 py-1.5">
+                                <option value="original">Same as original</option>
+                                <option value="jpeg">JPEG</option>
+                                <option value="png">PNG</option>
+                            </select>
+                            <button id="download-selected-btn" class="btn btn-primary btn-sm shrink-0">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>
+                                Download
+                            </button>
+                        </div>
+                        <div class="flex items-center justify-center gap-1.5 pt-2.5 border-t border-slate-100">
+                            <label class="switch">
+                                <input type="checkbox" id="add-noise-toggle">
+                                Add noise to disrupt hidden watermarks
+                            </label>
+                            <span class="tooltip-container">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <div class="tooltip absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-56 bg-slate-800 text-white text-xs rounded-lg py-2 px-2.5 pointer-events-none z-10 shadow-lg">
+                                    Adds subtle random noise to the pixel data, which can help destroy hidden data like invisible watermarks (steganography).
+                                </div>
+                            </span>
                         </div>
                     </div>
                 `;
@@ -431,7 +501,7 @@
                 document.getElementById('download-selected-btn').addEventListener('click', () => {
                     const format = document.getElementById('format-select').value;
                     const addNoise = document.getElementById('add-noise-toggle').checked;
-                    
+
                     let mimeType;
                     let newExtension;
 
@@ -454,13 +524,13 @@
 
             function renderMetadataTable(tags) {
                 if (Object.keys(tags).length === 0) {
-                    metadataDisplay.innerHTML = '<p class="text-gray-500">No readable metadata found.</p>';
+                    metadataDisplay.innerHTML = '<p class="text-slate-400 text-sm p-4">No readable metadata found.</p>';
                 } else {
-                    let tableHtml = '<table class="w-full text-left table-auto">';
-                    tableHtml += '<thead class="bg-gray-100"><tr><th class="px-4 py-2 font-semibold">Tag</th><th class="px-4 py-2 font-semibold">Value</th></tr></thead><tbody>';
+                    let tableHtml = '<table>';
+                    tableHtml += '<thead><tr><th>Tag</th><th>Value</th></tr></thead><tbody>';
                     for (const tagName in tags) {
                         if (tags.hasOwnProperty(tagName)) {
-                            tableHtml += `<tr class="border-b border-gray-200"><td class="px-4 py-2 font-mono text-xs">${tagName}</td><td class="px-4 py-2">${tags[tagName].description}</td></tr>`;
+                            tableHtml += `<tr><td>${tagName}</td><td>${tags[tagName].description}</td></tr>`;
                         }
                     }
                     tableHtml += '</tbody></table>';
@@ -506,14 +576,15 @@
 
             async function downloadAllAsZip() {
                 if (uploadedFiles.length === 0) return;
-                
+
                 const formatSelect = document.getElementById('format-select');
                 const format = formatSelect ? formatSelect.value : 'original';
 
                 const zip = new JSZip();
                 downloadZipBtn.disabled = true;
-                downloadZipBtn.textContent = 'Zipping...';
-                showMessage('Preparing your ZIP file...', 'info');
+                const originalZipLabel = downloadZipBtn.innerHTML;
+                downloadZipBtn.textContent = 'Zipping…';
+                showMessage('Preparing your ZIP file…', 'info');
                 try {
                     const addNoise = document.getElementById('add-noise-toggle')?.checked || false;
                     for (const fileObj of uploadedFiles) {
@@ -527,7 +598,7 @@
                             mimeType = `image/${format}`;
                             newExtension = format;
                         }
-                        
+
                         const blob = await createCleanedImageBlob(fileObj.file, mimeType, addNoise);
                         const baseName = fileObj.name.substring(0, fileObj.name.lastIndexOf('.')) || fileObj.name;
                         const newFileName = `${baseName}.${newExtension}`;
@@ -540,7 +611,7 @@
                     showMessage('Could not create ZIP file.', 'error');
                 } finally {
                     downloadZipBtn.disabled = false;
-                    downloadZipBtn.textContent = 'Download All Cleaned as ZIP';
+                    downloadZipBtn.innerHTML = originalZipLabel;
                 }
             }
 
@@ -553,16 +624,20 @@
                     mainContent.classList.add('hidden');
                     uploadContainer.classList.remove('hidden');
                 }
-                sizeInfo.innerHTML = `<p class="text-gray-500">Select an image to see details.</p>`;
-                metadataDisplay.innerHTML = '<p class="text-gray-500">Metadata will appear here.</p>';
+                sizeInfo.innerHTML = `<p class="text-slate-400 text-sm">Select an image to see details.</p>`;
+                metadataDisplay.innerHTML = '<p class="text-slate-400 text-sm p-4">Metadata will appear here.</p>';
                 metadataActions.innerHTML = '';
                 messageBox.classList.add('hidden');
             }
 
             function showMessage(message, type = 'success') {
-                const colors = { success: 'text-green-600 bg-green-100', error: 'text-red-600 bg-red-100', info: 'text-blue-600 bg-blue-100' };
+                const colors = {
+                    success: 'text-emerald-700 bg-emerald-50 border border-emerald-200',
+                    error: 'text-rose-700 bg-rose-50 border border-rose-200',
+                    info: 'text-blue-700 bg-blue-50 border border-blue-200'
+                };
                 messageBox.textContent = message;
-                messageBox.className = `p-3 rounded-lg mt-4 text-center font-medium ${colors[type] || colors.info}`;
+                messageBox.className = `p-3 rounded-xl mt-4 text-center font-medium text-sm ${colors[type] || colors.info}`;
                 messageBox.classList.remove('hidden');
                 setTimeout(() => { messageBox.classList.add('hidden'); }, 4000);
             }
